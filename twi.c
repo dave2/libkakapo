@@ -21,7 +21,7 @@
 #include "global.h"
 #include "errors.h"
 #include "twi.h"
-#include "serial.h"
+#include "usart.h"
 
 typedef struct {
 	TWI_t *hw;
