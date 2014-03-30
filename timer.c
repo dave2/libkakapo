@@ -40,12 +40,34 @@ typedef struct {
  	void (*ovf_fn)(uint8_t); /**< pointer to a top hook for channel n */
 } timer_t;
 
-#define TIMER_MAX 2
+#define TIMER_MAX 4
 
-#define TIM0_HW TCC1
-#define TIM0_EV_OVF EVSYS_CHMUX_TCC1_OVF_gc
-#define TIM0_EV_CMPA EVSYS_CHMUX_TCC1_CCA_gc
-#define TIM0_EV_CMPB EVSYS_CHMUX_TCC1_CCB_gc
+#define TIM0_HW TCC0
+#define TIM0_EV_OVF EVSYS_CHMUX_TCC0_OVF_gc
+#define TIM0_EV_CMPA EVSYS_CHMUX_TCC0_CCA_gc
+#define TIM0_EV_CMPB EVSYS_CHMUX_TCC0_CCB_gc
+#define TIM0_EV_CMPC EVSYS_CHMUX_TCC0_CCC_gc
+#define TIM0_EV_CMPD EVSYS_CHMUX_TCC0_CCD_gc
+
+#define TIM1_HW TCC1
+#define TIM1_EV_OVF EVSYS_CHMUX_TCC1_OVF_gc
+#define TIM1_EV_CMPA EVSYS_CHMUX_TCC1_CCA_gc
+#define TIM1_EV_CMPB EVSYS_CHMUX_TCC1_CCB_gc
+
+#define TIM2_HW TCD0
+#define TIM2_EV_OVF EVSYS_CHMUX_TCD0_OVF_gc
+#define TIM2_EV_CMPA EVSYS_CHMUX_TCD0_CCA_gc
+#define TIM2_EV_CMPB EVSYS_CHMUX_TCD0_CCB_gc
+#define TIM2_EV_CMPC EVSYS_CHMUX_TCD0_CCC_gc
+#define TIM2_EV_CMPD EVSYS_CHMUX_TCD0_CCD_gc
+
+#define TIM3_HW TCE0
+#define TIM3_EV_OVF EVSYS_CHMUX_TCE0_OVF_gc
+#define TIM3_EV_CMPA EVSYS_CHMUX_TCE0_CCA_gc
+#define TIM3_EV_CMPB EVSYS_CHMUX_TCE0_CCB_gc
+#define TIM3_EV_CMPC EVSYS_CHMUX_TCE0_CCC_gc
+#define TIM3_EV_CMPD EVSYS_CHMUX_TCE0_CCD_gc
+
 
 /* work out how many channels we have on this hardware */
 #ifdef EVSYS_CH4MUX
@@ -74,11 +96,31 @@ uint8_t timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period) {
 	/* map the timer numbers into hardware  */
 	switch (timernum) {
 		case 0:
-			/* timer0 shall be TCC1 */
+			timers[timernum]->type = 0;
+			timers[timernum]->hw.hw0 = &TIM0_HW;
+			/* power it on too */
+			PR.PRPC &= ~(PR_TC0_bm);
+			break;
+		case 1:
+			/* timer1 shall be TCC1 */
 			timers[timernum]->type = 1;
-			timers[timernum]->hw.hw1 = &TIM0_HW;
+			timers[timernum]->hw.hw1 = &TIM1_HW;
 			/* and power it on */
 			PR.PRPC &= ~(PR_TC1_bm);
+			break;
+		case 2:
+			/* timer2 shall be TCD0 */
+			timers[timernum]->type = 0;
+			timers[timernum]->hw.hw0 = &TIM2_HW;
+			/* power it on */
+			PR.PRPD &= ~(PR_TC0_bm);
+			break;
+		case 3:
+			/* timer3 shall be TCE0 */
+			timers[timernum]->type = 0;
+			timers[timernum]->hw.hw0 = &TIM3_HW;
+			/* power it on */
+			PR.PRPE &= ~(PR_TC0_bm);
 			break;
 		default:
 			free(timers[timernum]);
@@ -90,6 +132,10 @@ uint8_t timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period) {
 
 	/* now set the timer mode and period */
 	switch (timers[timernum]->type) {
+		case 0:
+			timers[timernum]->hw.hw0->CTRLB = mode;
+			timers[timernum]->hw.hw0->PER = period;
+			break;
 		case 1:
 			timers[timernum]->hw.hw1->CTRLB = mode; /* cheating */
 			timers[timernum]->hw.hw1->PER = period;
@@ -110,6 +156,9 @@ uint8_t timer_clk(uint8_t timernum, timer_clk_src_t clk) {
 
 	/* apply the clock source selection to the timer */
 	switch (timers[timernum]->type) {
+		case 0:
+			timers[timernum]->hw.hw0->CTRLA = clk;
+			break;
 		case 1:
 			timers[timernum]->hw.hw1->CTRLA = clk; /* cheating! */
 			break;
@@ -123,6 +172,7 @@ uint8_t timer_clk(uint8_t timernum, timer_clk_src_t clk) {
 /* set up compares */
 uint8_t timer_comp(uint8_t timernum, timer_chan_t ch, uint16_t value,
 	void (*cmp_hook)(uint8_t), uint8_t cmp_ev) {
+	uint8_t ev_match;
 
 	if (timernum >= TIMER_MAX || !timers[timernum]) {
 		return ENODEV;
@@ -131,8 +181,44 @@ uint8_t timer_comp(uint8_t timernum, timer_chan_t ch, uint16_t value,
 	/* install the hook */
 	timers[timernum]->cmp_fn = cmp_hook;
 
+	/* FIXME: the EVSYS stuff needs to be re-written */
+
 	/* now configure the compare */
 	switch (timers[timernum]->type) {
+		case 0:
+			switch (ch) {
+				case timer_ch_a:
+					timers[timernum]->hw.hw0->CCABUF = value;
+					timers[timernum]->hw.hw0->CTRLB |= TC0_CCAEN_bm;
+					if (cmp_ev < MAX_EVENT) {
+						*(&EVSYS_CH0MUX+cmp_ev) = TIM0_EV_CMPA;
+					}
+					break;
+				case timer_ch_b:
+					timers[timernum]->hw.hw0->CCBBUF = value;
+					timers[timernum]->hw.hw0->CTRLB |= TC0_CCBEN_bm;
+					if (cmp_ev < MAX_EVENT) {
+						*(&(EVSYS.CH0MUX)+cmp_ev) = TIM0_EV_CMPB;
+					}
+					break;
+				case timer_ch_c:
+					timers[timernum]->hw.hw0->CCABUF = value;
+					timers[timernum]->hw.hw0->CTRLB |= TC0_CCCEN_bm;
+					if (cmp_ev < MAX_EVENT) {
+						*(&EVSYS_CH0MUX+cmp_ev) = TIM0_EV_CMPC;
+					}
+					break;
+				case timer_ch_d:
+					timers[timernum]->hw.hw0->CCABUF = value;
+					timers[timernum]->hw.hw0->CTRLB |= TC0_CCDEN_bm;
+					if (cmp_ev < MAX_EVENT) {
+						*(&EVSYS_CH0MUX+cmp_ev) = TIM0_EV_CMPD;
+					}
+					break;
+				default:
+					return EINVAL;
+			}
+			break;
 		case 1:
 			switch (ch) {
 				case timer_ch_a:
@@ -169,6 +255,27 @@ uint8_t timer_comp_val(uint8_t timernum, timer_chan_t ch, uint16_t value) {
 
 	/* now configure the compare */
 	switch (timers[timernum]->type) {
+		case 0:
+			switch (ch) {
+			case timer_ch_a:
+					timers[timernum]->hw.hw0->CCA = value;
+					timers[timernum]->hw.hw0->CTRLB |= TC0_CCAEN_bm;
+					break;
+			case timer_ch_b:
+					timers[timernum]->hw.hw0->CCB = value;
+					timers[timernum]->hw.hw0->CTRLB |= TC0_CCBEN_bm;
+					break;
+			case timer_ch_c:
+					timers[timernum]->hw.hw0->CCC = value;
+					timers[timernum]->hw.hw0->CTRLB |= TC0_CCCEN_bm;
+					break;
+			case timer_ch_d:
+					timers[timernum]->hw.hw0->CCD = value;
+					timers[timernum]->hw.hw0->CTRLB |= TC0_CCDEN_bm;
+					break;
+			default:
+					return EINVAL;
+			}
 		case 1:
 			switch (ch) {
 				case timer_ch_a:
@@ -190,6 +297,47 @@ uint8_t timer_comp_val(uint8_t timernum, timer_chan_t ch, uint16_t value) {
 	return 0;
 }
 
+uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch) {
+	if (timernum >= TIMER_MAX || !timers[timernum]) {
+		return ENODEV;
+	}
+
+	/* now configure the compare */
+	switch (timers[timernum]->type) {
+		case 0:
+			switch (ch) {
+			case timer_ch_a:
+					timers[timernum]->hw.hw0->CTRLB &= ~(TC0_CCAEN_bm);
+					break;
+			case timer_ch_b:
+					timers[timernum]->hw.hw0->CTRLB &= ~(TC0_CCBEN_bm);
+					break;
+			case timer_ch_c:
+					timers[timernum]->hw.hw0->CTRLB &= ~(TC0_CCCEN_bm);
+					break;
+			case timer_ch_d:
+					timers[timernum]->hw.hw0->CTRLB &= ~(TC0_CCDEN_bm);
+					break;
+			default:
+					return EINVAL;
+			}
+		case 1:
+			switch (ch) {
+				case timer_ch_a:
+					timers[timernum]->hw.hw1->CTRLB &= ~(TC1_CCAEN_bm);
+					break;
+				case timer_ch_b:
+					timers[timernum]->hw.hw1->CTRLB &= ~(TC1_CCBEN_bm);
+					break;
+				default:
+					return EINVAL;
+			}
+			break;
+		default:
+			return EINVAL;
+	}
+}
+
 /* set up overflows */
 uint8_t timer_ovf(uint8_t timernum, void (*ovf_hook)(uint8_t),
 	uint8_t ovf_ev) {
@@ -205,6 +353,7 @@ uint8_t timer_ovf(uint8_t timernum, void (*ovf_hook)(uint8_t),
 	/* install the hook */
 	timers[timernum]->ovf_fn = ovf_hook;
 	/* and the event handler */
+	/* FIXME: this is incorrect */
 	*(&EVSYS_CH0MUX+ovf_ev) = TIM0_EV_OVF;
 
 	return 0;
@@ -218,6 +367,9 @@ uint8_t timer_count(uint8_t timernum, uint16_t value) {
 
 	/* now configure the count */
 	switch (timers[timernum]->type) {
+		case 0:
+			timers[timernum]->hw.hw0->CNT = value;
+			break;
 		case 1:
 			timers[timernum]->hw.hw1->CNT = value;
 			break;

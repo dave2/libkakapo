@@ -134,9 +134,17 @@ uint8_t timer_comp_val(uint8_t timernum, timer_chan_t ch, uint16_t value);
  *
  *  Note: timer must be stopped for this to be safe.
  *  \param timernum Number of the timer
+ *  \param ch Channel of the timer
  *  \param value Count value
  *  \return 0 for success, errors.h otherwise
  */
 uint8_t timer_count(uint8_t timernum, uint16_t value);
+
+/** \brief Turn off a given channel
+ *  \param timernum Number of the timer
+ *  \param ch Channel of the timer
+ *  \return 0 for success, errors.h otherwise
+ */
+uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch);
 
 #endif // TIMER_H_INCLUDED
