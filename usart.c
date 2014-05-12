@@ -1,6 +1,6 @@
-/* XMEGA USART driverr */
+/* USART driver */
 
-/* Copyright (C) 2009-2013 David Zanetti
+/* Copyright (C) 2009-2014 David Zanetti
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,21 +42,21 @@
  *
  *  Process of using a port is:
  *
- *  + serial_init(); to prepare the internal structures
+ *  + usart_init(); to prepare the internal structures
  *
- *  + serial_conf(); to configure baud, bits, parity etc.
+ *  + usart_conf(); to configure baud, bits, parity etc.
  *
- *  + serial_map_stdio(); returns a FILE * suitable for stdio functions
+ *  + usart_map_stdio(); returns a FILE * suitable for stdio functions
  *
- *  + serial_run(); to get things going
+ *  + usart_run(); to get things going
  *
  *  Can be easily expanded to cover more ports than the 2 currently
  *  implemented, as all code is generic
  */
 
-/* hw access, buffers, and metadata about a serial port */
+/* hw access, buffers, and metadata about a usart port */
 
-/** \struct serial_port_t
+/** \struct usart_port_t
  *  \brief  Contains the abstraction of a hardware port
  */
 typedef struct {
@@ -64,13 +64,13 @@ typedef struct {
 	ringbuffer_t *txring; /**< TX ringbuffer */
 	ringbuffer_t *rxring; /**< RX ringbuffer */
 	uint8_t isr_level; /**< Level to run/restore interrupts at */
-	uint8_t features; /**< Capabilities of the port, see S_FEAT_ */
+	uint8_t features; /**< Capabilities of the port, see U_FEAT_ */
 	void (*rx_fn)(uint8_t); /**< Callback function for RX */
-} serial_port_t;
+} usart_port_t;
 
-#define MAX_PORTS 2 /**< Maximum number of serial ports supported */
+#define MAX_PORTS 2 /**< Maximum number of usart ports supported */
 
-serial_port_t *ports[MAX_PORTS] = {0,0}; /**< Serial port abstractions */
+usart_port_t *ports[MAX_PORTS] = {0,0}; /**< USART port abstractions */
 
 /* private function prototypes */
 
@@ -80,35 +80,35 @@ serial_port_t *ports[MAX_PORTS] = {0,0}; /**< Serial port abstractions */
  * \param port Port abstraction this event applies to
  *
  */
-void _usart_tx_isr(serial_port_t *port);
+void _usart_tx_isr(usart_port_t *port);
 
 /** \brief Handle an RX interrupt for the given port
  *  \param port Port abstraction this event applies to
  */
-void _usart_rx_isr(serial_port_t *port);
+void _usart_rx_isr(usart_port_t *port);
 
 /** \brief Start TX processing on the given port
  *  \param port Port abstraction this event applies to
  */
-void _usart_tx_run(serial_port_t *port);
+void _usart_tx_run(usart_port_t *port);
 
 /** \brief Put hook for stdio functions.
  *
  *  See avr-libc stdio.h documentation
  */
-int serial_put(char s, FILE *handle);
+int usart_put(char s, FILE *handle);
 
 /** \brief Get hook for stdio functions.
  *
  *  See avr-libc stdio.h documentation
  */
-int serial_get(FILE *handle);
+int usart_get(FILE *handle);
 
 /* Interrupt hooks and handlers */
 
 /* handle a TX event */
 /* since this fires on empty, it's safe to fire more than we actually need to */
-void _usart_tx_isr(serial_port_t *port) {
+void _usart_tx_isr(usart_port_t *port) {
 	if (!port) {
 		return; /* don't try to use uninitalised ports */
 	}
@@ -123,7 +123,7 @@ void _usart_tx_isr(serial_port_t *port) {
 }
 
 /* handle an RX event */
-void _usart_rx_isr(serial_port_t *port) {
+void _usart_rx_isr(usart_port_t *port) {
 	char s;
 
 	if (!port) {
@@ -133,7 +133,7 @@ void _usart_rx_isr(serial_port_t *port) {
 	s = port->hw->DATA; /* read the char from the port */
 	ring_write_unsafe(port->rxring, s); /* if this fails we have nothing useful we can do anyway */
 
-	if (port->features & S_FEAT_ECHO) {
+	if (port->features & U_FEAT_ECHO) {
 		/* fixme: does this introduce another source of ring corruption? */
 		ring_write_unsafe(port->txring,s);
 		_usart_tx_run(port);
@@ -146,7 +146,7 @@ void _usart_rx_isr(serial_port_t *port) {
 }
 
 /* make the given port start TXing */
-void _usart_tx_run(serial_port_t *port) {
+void _usart_tx_run(usart_port_t *port) {
 	/* enable interrupts for the appropriate port */
 	port->hw->CTRLA = port->hw->CTRLA | (port->isr_level & USART_DREINTLVL_gm);
 	return;
@@ -173,7 +173,7 @@ ISR(USARTD0_RXC_vect) {
 }
 
 /* initalise the structures and hardware */
-int serial_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
+int usart_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
 
 	if (ports[portnum] || portnum >= MAX_PORTS) {
 		/* refuse to re-initalise a port or one not allocatable */
@@ -181,7 +181,7 @@ int serial_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
 	}
 
 	/* create the metadata for the port */
-	ports[portnum] = malloc(sizeof(serial_port_t));
+	ports[portnum] = malloc(sizeof(usart_port_t));
 	if (!ports[portnum]) {
 		return -ENOMEM;
 	}
@@ -192,7 +192,7 @@ int serial_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
 	if (!ports[portnum]->rxring) {
 		free(ports[portnum]);
 		ports[portnum] = NULL;
-		return -ENOMEM; /* FIXME: flag serial IO no longer works */
+		return -ENOMEM; /* FIXME: flag usart IO no longer works */
 	}
 
 	ports[portnum]->txring = ring_create(tx_size-1);
@@ -200,7 +200,7 @@ int serial_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
 		ring_destroy(ports[portnum]->rxring); /* since the first one succeeded */
 		free(ports[portnum]);
 		ports[portnum] = NULL;
-		return -ENOMEM; /* FIXME: flag serial IO no longer works */
+		return -ENOMEM; /* FIXME: flag usart IO no longer works */
 	}
 
 	/* connect the hardware */
@@ -238,7 +238,7 @@ int serial_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
 	return 0;
 }
 
-int serial_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
+int usart_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
 	parity_t parity, uint8_t stop, uint8_t features,
 	void (*rx_fn)(uint8_t)) {
 
@@ -322,7 +322,7 @@ int serial_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
 	return 0;
 }
 
-int serial_run(uint8_t portnum, bool_t state) {
+int usart_run(uint8_t portnum, bool_t state) {
 	if (portnum >= MAX_PORTS || !ports[portnum]) {
 		/* do nothing */
 		return -ENODEV;
@@ -344,7 +344,7 @@ int serial_run(uint8_t portnum, bool_t state) {
 	return 0;
 }
 
-int serial_flush(uint8_t portnum) {
+int usart_flush(uint8_t portnum) {
 
 	if (portnum >= MAX_PORTS || !ports[portnum]) {
 		return -ENODEV;
@@ -369,10 +369,10 @@ int serial_flush(uint8_t portnum) {
 	return 0;
 }
 
-int serial_put(char s, FILE *handle) {
-	serial_port_t *port;
+int usart_put(char s, FILE *handle) {
+	usart_port_t *port;
 	/* reteieve the pointer to the struct for our hardware */
-	port = (serial_port_t *)fdev_get_udata(handle);
+	port = (usart_port_t *)fdev_get_udata(handle);
 	if (!port) {
 		return _FDEV_ERR; /* avr-libc doesn't describe this, but never mind */
 	}
@@ -381,10 +381,10 @@ int serial_put(char s, FILE *handle) {
 	return 0;
 }
 
-int serial_get(FILE *handle) {
-	serial_port_t *port;
+int usart_get(FILE *handle) {
+	usart_port_t *port;
 	/* retireve the pointer to the struct for our hardware */
-	port = (serial_port_t *)fdev_get_udata(handle);
+	port = (usart_port_t *)fdev_get_udata(handle);
 	if (!port) {
 		return _FDEV_ERR;
 	}
@@ -394,13 +394,13 @@ int serial_get(FILE *handle) {
 	return _FDEV_EOF;
 }
 
-FILE *serial_map_stdio(uint8_t portnum) {
+FILE *usart_map_stdio(uint8_t portnum) {
 	FILE *handle = NULL;
 
 	/* two steps, create the device, and then associate our ports struct with
 	 * the passed portnum */
 
-	handle = fdevopen(&serial_put,&serial_get);
+	handle = fdevopen(&usart_put,&usart_get);
 	if (!handle) {
 		return NULL;
 	}

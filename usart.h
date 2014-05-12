@@ -1,6 +1,6 @@
-/* XMEGA USART public definitions */
+/* USART port definitions and public interface */
 
-/* Copyright (C) 2009-2013 David Zanetti
+/* Copyright (C) 2009-2014 David Zanetti
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  */
 
 #ifndef USART_H_INCLUDED
-#define USARTL_H_INCLUDED
+#define USART_H_INCLUDED
 
 /** \file
  *  \brief USART driver public API
@@ -29,20 +29,20 @@
  *
  *  Process of using a port is:
  *
- *  + serial_init(); to prepare the internal structures
+ *  + usart_init(); to prepare the internal structures
  *
- *  + serial_conf(); to configure baud, bits, parity etc.
+ *  + usart_conf(); to configure baud, bits, parity etc.
  *
- *  + serial_map_stdio(); returns a FILE * suitable for stdio functions
+ *  + usart_map_stdio(); returns a FILE * suitable for stdio functions
  *
- *  + serial_run(); to get things going
+ *  + usart_run(); to get things going
  *
  *  Can be easily expanded to cover more ports than the 2 currently
  *  implemented, as all code is generic
  */
 
-#define S_FEAT_NONE 0 /**< Serial port feature: None */
-#define S_FEAT_ECHO 1 /**< Serial port feature: echoback inside driver */
+#define U_FEAT_NONE 0 /**< USART port feature: None */
+#define U_FEAT_ECHO 1 /**< USART port feature: echoback inside driver */
 
 /** \brief Enum for parity types */
 typedef enum {
@@ -58,7 +58,7 @@ typedef enum {
  *  \param tx_size Size of the TX buffer (must be power of two)
  *  \return 0 for success, negative errors.h values otherwise
  */
-int serial_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size);
+int usart_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size);
 
 /** \brief Set parameters for the port, speed and such like
  *
@@ -71,12 +71,12 @@ int serial_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size);
  *  \param bits Bits per char (note: 9 is not supported)
  *  \param parity Parity mode (none, even, odd)
  *  \param stop Stop bits
- *  \param features Features (see S_FEAT_*)
+ *  \param features Features (see U_FEAT_*)
  *  \param rxfn Pointer to function for RX interrupt hook, NULL for no
  *  hook. Must return void, accept uint8_t of current char.
  *  \return 0 for success, negative errors.h values otherwise
  */
-int serial_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
+int usart_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
 	parity_t parity, uint8_t stop, uint8_t features, void (*rxfn)(uint8_t));
 
 /** \brief Start listening for events and characters, also allows
@@ -84,13 +84,13 @@ int serial_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
  *  \param portnum Number of the port
  *  \param state boolean, true or false
  */
-int serial_run(uint8_t portnum, bool_t state);
+int usart_run(uint8_t portnum, bool_t state);
 
 /** \brief Flush the buffers for the serial port
  *  \param portnum Number of the port
  *  \return 0 for success, negative errors.h values otherwise
  */
-int serial_flush(uint8_t portnum);
+int usart_flush(uint8_t portnum);
 
 /** \brief Associate a serial port with a stdio stream
  *
@@ -102,6 +102,6 @@ int serial_flush(uint8_t portnum);
  *  \param portnum Number of the port
  *  \return FILE handle, NULL if allocated failed
  */
-FILE *serial_map_stdio(uint8_t portnum);
+FILE *usart_map_stdio(uint8_t portnum);
 
-#endif // SERIAL_H_INCLUDED
+#endif // usart_H_INCLUDED
