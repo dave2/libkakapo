@@ -18,11 +18,13 @@
  */
 
 /** \file
- *  \brief XMEGA clocking setup
+ *  \brief XMEGA clock setup, incl. RTC
  *
  *  Set up clocking system with F_CPU defined clock speed. Optionally
  *  allows per4 and per2 clocks to be 4x and 2x as required. In all
  *  cases, DFLL is used to improve RC oscilator stability.
+ *
+ *  Also establishes RTC clock and functions to support reading it
  *
  *  Note: Only the following F_CPU values are supported:
  *  - 1MHz (2MHz RC OSC / 2)
@@ -49,7 +51,7 @@
  *  FIXME: support 12MHz for <2.7V operation, using 2MHz RC, 6xPLL
  */
 
-/** \brief Configure system clock
+/** \brief Configure system clock and RTC
  *
  *  Clock system will be configured to use F_CPU as the CPU frequency.
  *  All perpherial clocks run at same frequency as CPU. See
@@ -60,12 +62,38 @@
 void sysclk_init(void);
 
 /** \brief Configure system clock, with 4x and 2x perperhial clock
- *  support.
+ *  support. Also configures RTC.
  *
  *  This is the same as sysclk_init(), runs CPU clock at F_CPU but
  *  runs per4 and per2 clocks at 4x and 2x CPU clock. This consumes
  *  more power (as it needs the PLL) for 16MHz and 32MHz F_CPU.
  */
 void sysclk_init_perhigh(void);
+
+/** \brief Return the current uptime
+ *
+ *  This function writes the current uptime in seconds and fractions
+ *  of a second to the given variables. Note: fractions are expressed
+ *  as a fixed point 16-bit number, ie 0.5 seconds == 32768.
+ *  Note: either field can be NULL to ignore this portion.
+ *
+ *  \param *seconds pointer to seconds portion, must be uint32_t
+ *  \param *faction pointer to fraction portion, must be uint16_t
+ */
+void sysclk_uptime(uint32_t *seconds, uint16_t *fraction);
+
+/** \brief Return current fractions of a second
+ *
+ *  This function returns the current fraction of a second over
+ *  a range 0-1023, roughly equivilent to milliseconds. The
+ *  difference between this value and wall-clock milliseconds
+ *  may be up to 2%, however it is very fast to extract from
+ *  the hardware.
+ *
+ *  Note: unlike sysclk_uptime(), this is not a fixed point fraction.
+ *
+ *  \return current fraction of seconds (10-bit)
+ */
+uint16_t sysclk_millis(void);
 
 #endif // CLOCK_H_INCLUDED

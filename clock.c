@@ -19,6 +19,8 @@
 #include "global.h"
 #include "clock.h"
 
+uint32_t uptime;
+
 void sysclk_init(void) {
 
 #ifndef F_CPU
@@ -90,6 +92,23 @@ void sysclk_init(void) {
 #else
 #error Invalid F_CPU specified for clock functions
 #endif
+	/* reset uptime */
+	uptime = 0;
+
+	/* select RTC source to be 32.768kHz external crystal */
+	CLK.RTCCTRL = CLK_RTCSRC_TOSC32_gc | CLK_RTCEN_bm;
+
+	/* configure RTC */
+	RTC.CNT = 0;
+	RTC.PER = 32767;
+	RTC.INTCTRL = RTC_OVFINTLVL_LO_gc; /* these are very low prio */
+	/* FIXME: when is this needed? */
+	//while (RTC.STATUS & RTC_SYNCBUSY_bm);
+	/* null body */
+
+	/* run it */
+	RTC.CTRL = RTC_PRESCALER_DIV1_gc;
+
     return;
 }
 
@@ -185,4 +204,22 @@ void sysclk_init_perhigh(void) {
 #error Invalid F_CPU specified for clock functions
 #endif
     return;
+}
+
+void sysclk_uptime(uint32_t *seconds, uint16_t *fraction) {
+	/* FIXME: glitchy? */
+	if (seconds) {
+		*seconds = uptime;
+	}
+	if (fraction) {
+		*fraction = (RTC.CNT << 1); /* left shift by 1 bit to be fixed point */
+	}
+}
+
+uint16_t sysclk_millis(void) {
+	return (RTC.CNT >> 6); /* divide by 32 = 1024Hz */
+}
+
+ISR(RTC_OVF_vect) {
+	uptime++;
 }
