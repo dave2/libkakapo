@@ -216,7 +216,7 @@ void sysclk_uptime(uint32_t *seconds, uint16_t *fraction) {
 	}
 }
 
-uint16_t sysclk_millis(void) {
+uint16_t sysclk_ticks(void) {
 	return (RTC.CNT >> 6); /* divide by 32 = 1024Hz */
 }
 
