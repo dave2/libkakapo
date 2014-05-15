@@ -1,10 +1,15 @@
 # Build the libkakapo.a archive containing all the drivers
 
-CC=avr-gcc
-AR=avr-ar
-RANLIB=avr-ranlib
-CFLAGS=-Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I.
-CFLAGS += -mmcu=atxmega64d4
+# Where is the toolchain unpacked?
+TOOLBASE  = /usr/local/share/avr8-gnu-toolchain-linux_x86_64
+# What MCU do we have on this board?
+MCU       = atxmega64d4
+#Tools we'll need
+CC        = $(TOOLBASE)/bin/avr-gcc
+AR        = $(TOOLBASE)/bin/avr-ar
+RANLIB    = $(TOOLBASE)/bin/avr-ranlib
+CFLAGS    = -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I.
+CFLAGS   +=  -mmcu=$(MCU)
 
 OBJ += adc.o ringbuffer.o spi.o timer.o usart.o twi.o clock.o
 
