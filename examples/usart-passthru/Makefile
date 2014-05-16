@@ -1,9 +1,9 @@
 # Where is the toolchain unpacked?
-TOOLBASE  = /usr/local/share/avr8-gnu-toolchain-linux_x86_64
+TOOLBASE  ?= /usr/local/share/avr8-gnu-toolchain-linux_x86_64
 # What MCU do we have on this board?
 MCU       = atxmega64d4
 # Port that Kakapo popped up on
-PORT      = /dev/ttyUSB2
+PORT      ?= /dev/ttyUSB2
 # Application name 
 APP       = usart-passthru
 # If using libkakapo, uncomment
