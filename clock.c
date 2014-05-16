@@ -92,6 +92,10 @@ void sysclk_init(void) {
 #else
 #error Invalid F_CPU specified for clock functions
 #endif
+	/* this should really be in a board_init() or something? */
+	PMIC.CTRL = PMIC_HILVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_LOLVLEN_bm;
+ 	sei();
+
 	/* reset uptime */
 	uptime = 0;
 
