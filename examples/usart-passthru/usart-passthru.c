@@ -19,14 +19,14 @@ int main(void) {
   usart_conf(1, 9600, 8, none, 1, 0, NULL);
   // because first call to this maps STDIN/STDOUT
   usart_map_stdio(1);
-  usart_run(1, true);
+  usart_run(1);
 
   // Now initialise USART 0 (PC2/PC3)
   usart_init(0, 128, 128);
   usart_conf(0, 9600, 8, none, 1, 0, NULL);
   // Grab the file handle so we can use it later
   other_usart = usart_map_stdio(0);
-  usart_run(0, true);
+  usart_run(0);
 
   int ch;
   while (1) {
