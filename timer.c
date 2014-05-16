@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 David Zanetti
+/* Copyright (C) 2013-2014 David Zanetti
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ typedef struct {
  		TC1_t *hw1; /**< HW pointer for type 1 */
  	} hw;
  	void (*cmp_fn)(uint8_t); /**< pointer to a compare hook, for channel n */
- 	void (*ovf_fn)(uint8_t); /**< pointer to a top hook for channel n */
+ 	void (*ovf_fn)(); /**< pointer to a top hook for whole timer */
 } timer_t;
 
 #define TIMER_MAX 4
@@ -45,29 +45,18 @@ typedef struct {
 #define TIM0_HW TCC0
 #define TIM0_EV_OVF EVSYS_CHMUX_TCC0_OVF_gc
 #define TIM0_EV_CMPA EVSYS_CHMUX_TCC0_CCA_gc
-#define TIM0_EV_CMPB EVSYS_CHMUX_TCC0_CCB_gc
-#define TIM0_EV_CMPC EVSYS_CHMUX_TCC0_CCC_gc
-#define TIM0_EV_CMPD EVSYS_CHMUX_TCC0_CCD_gc
 
 #define TIM1_HW TCC1
 #define TIM1_EV_OVF EVSYS_CHMUX_TCC1_OVF_gc
 #define TIM1_EV_CMPA EVSYS_CHMUX_TCC1_CCA_gc
-#define TIM1_EV_CMPB EVSYS_CHMUX_TCC1_CCB_gc
 
 #define TIM2_HW TCD0
 #define TIM2_EV_OVF EVSYS_CHMUX_TCD0_OVF_gc
 #define TIM2_EV_CMPA EVSYS_CHMUX_TCD0_CCA_gc
-#define TIM2_EV_CMPB EVSYS_CHMUX_TCD0_CCB_gc
-#define TIM2_EV_CMPC EVSYS_CHMUX_TCD0_CCC_gc
-#define TIM2_EV_CMPD EVSYS_CHMUX_TCD0_CCD_gc
 
 #define TIM3_HW TCE0
 #define TIM3_EV_OVF EVSYS_CHMUX_TCE0_OVF_gc
 #define TIM3_EV_CMPA EVSYS_CHMUX_TCE0_CCA_gc
-#define TIM3_EV_CMPB EVSYS_CHMUX_TCE0_CCB_gc
-#define TIM3_EV_CMPC EVSYS_CHMUX_TCE0_CCC_gc
-#define TIM3_EV_CMPD EVSYS_CHMUX_TCE0_CCD_gc
-
 
 /* work out how many channels we have on this hardware */
 #ifdef EVSYS_CH4MUX
@@ -79,10 +68,15 @@ typedef struct {
 /* global timer constructs */
 timer_t *timers[TIMER_MAX];
 
+/* private functions */
+void _timer_ovf_hook(uint8_t num);
+void _timer_cmp_hook(uint8_t num, uint8_t ch);
+
 /* implementation! */
 
 /* init the struct, and some asic stuff about the timer */
-uint8_t timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period) {
+uint8_t timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period,
+					void (*cmp_hook)(uint8_t), void (*ovf_hook)()) {
 	if (timernum >= TIMER_MAX) {
 		return ENODEV;
 	}
@@ -126,19 +120,28 @@ uint8_t timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period) {
 			free(timers[timernum]);
 			return ENODEV;
 	}
-	/* reset function pointers */
-	timers[timernum]->cmp_fn = NULL;
-	timers[timernum]->ovf_fn = NULL;
+
+	/* install the hooks */
+	timers[timernum]->cmp_fn = cmp_hook;
+	timers[timernum]->ovf_fn = ovf_hook;
 
 	/* now set the timer mode and period */
 	switch (timers[timernum]->type) {
 		case 0:
-			timers[timernum]->hw.hw0->CTRLB = mode;
+			timers[timernum]->hw.hw0->CTRLB = mode; /* cheating */
 			timers[timernum]->hw.hw0->PER = period;
+			if (ovf_hook) {
+				/* we don't use ERR hook */
+				timers[timernum]->hw.hw0->INTCTRLA = TC_OVFINTLVL_LO_gc;
+			}
 			break;
 		case 1:
 			timers[timernum]->hw.hw1->CTRLB = mode; /* cheating */
 			timers[timernum]->hw.hw1->PER = period;
+			if (ovf_hook) {
+				/* we don't use ERR hook */
+				timers[timernum]->hw.hw1->INTCTRLA = TC_OVFINTLVL_LO_gc;
+			}
 			break;
 		default:
 			free(timers[timernum]);
@@ -169,19 +172,35 @@ uint8_t timer_clk(uint8_t timernum, timer_clk_src_t clk) {
 	return 0;
 }
 
+/* fixme, hook for ovf and compare should really be in init() and not
+ * here */
+
 /* set up compares */
 uint8_t timer_comp(uint8_t timernum, timer_chan_t ch, uint16_t value,
-	void (*cmp_hook)(uint8_t), uint8_t cmp_ev) {
+	uint8_t cmp_ev) {
 	uint8_t ev_match;
 
 	if (timernum >= TIMER_MAX || !timers[timernum]) {
 		return ENODEV;
 	}
 
-	/* install the hook */
-	timers[timernum]->cmp_fn = cmp_hook;
-
-	/* FIXME: the EVSYS stuff needs to be re-written */
+	/* work out the event mux base for compare events */
+	/* note: this is really cheating, and presumes compare event numbers
+	 * will always be sequential. */
+	switch (timernum) {
+		case 0:
+			ev_match = TIM0_EV_CMPA;
+			break;
+		case 1:
+			ev_match = TIM1_EV_CMPA;
+			break;
+		case 2:
+			ev_match = TIM2_EV_CMPA;
+			break;
+		case 3:
+			ev_match = TIM3_EV_CMPA;
+			break;
+	}
 
 	/* now configure the compare */
 	switch (timers[timernum]->type) {
@@ -191,28 +210,44 @@ uint8_t timer_comp(uint8_t timernum, timer_chan_t ch, uint16_t value,
 					timers[timernum]->hw.hw0->CCABUF = value;
 					timers[timernum]->hw.hw0->CTRLB |= TC0_CCAEN_bm;
 					if (cmp_ev < MAX_EVENT) {
-						*(&EVSYS_CH0MUX+cmp_ev) = TIM0_EV_CMPA;
+						*(&EVSYS_CH0MUX+cmp_ev) = (ev_match);
+					}
+					if (timers[timernum]->cmp_fn) {
+						timers[timernum]->hw.hw0->INTCTRLB &= ~(TC0_CCAINTLVL_gm);
+						timers[timernum]->hw.hw0->INTCTRLB |= TC_CCAINTLVL_LO_gc;
 					}
 					break;
 				case timer_ch_b:
 					timers[timernum]->hw.hw0->CCBBUF = value;
 					timers[timernum]->hw.hw0->CTRLB |= TC0_CCBEN_bm;
 					if (cmp_ev < MAX_EVENT) {
-						*(&(EVSYS.CH0MUX)+cmp_ev) = TIM0_EV_CMPB;
+						*(&(EVSYS.CH0MUX)+cmp_ev) = (ev_match+1);
+					}
+					if (timers[timernum]->cmp_fn) {
+						timers[timernum]->hw.hw0->INTCTRLB &= ~(TC0_CCBINTLVL_gm);
+						timers[timernum]->hw.hw0->INTCTRLB |= TC_CCBINTLVL_LO_gc;
 					}
 					break;
 				case timer_ch_c:
 					timers[timernum]->hw.hw0->CCABUF = value;
 					timers[timernum]->hw.hw0->CTRLB |= TC0_CCCEN_bm;
 					if (cmp_ev < MAX_EVENT) {
-						*(&EVSYS_CH0MUX+cmp_ev) = TIM0_EV_CMPC;
+						*(&EVSYS_CH0MUX+cmp_ev) = (ev_match+2);
+					}
+					if (timers[timernum]->cmp_fn) {
+						timers[timernum]->hw.hw0->INTCTRLB &= ~(TC0_CCCINTLVL_gm);
+						timers[timernum]->hw.hw0->INTCTRLB |= TC_CCCINTLVL_LO_gc;
 					}
 					break;
 				case timer_ch_d:
 					timers[timernum]->hw.hw0->CCABUF = value;
 					timers[timernum]->hw.hw0->CTRLB |= TC0_CCDEN_bm;
 					if (cmp_ev < MAX_EVENT) {
-						*(&EVSYS_CH0MUX+cmp_ev) = TIM0_EV_CMPD;
+						*(&EVSYS_CH0MUX+cmp_ev) = (ev_match+3);
+					}
+					if (timers[timernum]->cmp_fn) {
+						timers[timernum]->hw.hw0->INTCTRLB &= ~(TC0_CCDINTLVL_gm);
+						timers[timernum]->hw.hw0->INTCTRLB |= TC_CCDINTLVL_LO_gc;
 					}
 					break;
 				default:
@@ -225,14 +260,22 @@ uint8_t timer_comp(uint8_t timernum, timer_chan_t ch, uint16_t value,
 					timers[timernum]->hw.hw1->CCABUF = value;
 					timers[timernum]->hw.hw1->CTRLB |= TC1_CCAEN_bm;
 					if (cmp_ev < MAX_EVENT) {
-						*(&EVSYS_CH0MUX+cmp_ev) = TIM0_EV_CMPA;
+						*(&EVSYS_CH0MUX+cmp_ev) = (ev_match);
+					}
+					if (timers[timernum]->cmp_fn) {
+						timers[timernum]->hw.hw1->INTCTRLB &= ~(TC0_CCAINTLVL_gm);
+						timers[timernum]->hw.hw1->INTCTRLB |= TC_CCAINTLVL_LO_gc;
 					}
 					break;
 				case timer_ch_b:
 					timers[timernum]->hw.hw1->CCBBUF = value;
 					timers[timernum]->hw.hw1->CTRLB |= TC1_CCBEN_bm;
 					if (cmp_ev < MAX_EVENT) {
-						*(&(EVSYS.CH0MUX)+cmp_ev) = TIM0_EV_CMPB;
+						*(&(EVSYS.CH0MUX)+cmp_ev) = (ev_match+1);
+					}
+					if (timers[timernum]->cmp_fn) {
+						timers[timernum]->hw.hw1->INTCTRLB &= ~(TC0_CCBINTLVL_gm);
+						timers[timernum]->hw.hw1->INTCTRLB |= TC_CCBINTLVL_LO_gc;
 					}
 					break;
 				default:
@@ -308,15 +351,19 @@ uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch) {
 			switch (ch) {
 			case timer_ch_a:
 					timers[timernum]->hw.hw0->CTRLB &= ~(TC0_CCAEN_bm);
+					timers[timernum]->hw.hw0->INTCTRLB &= ~(TC0_CCAINTLVL_gm);
 					break;
 			case timer_ch_b:
 					timers[timernum]->hw.hw0->CTRLB &= ~(TC0_CCBEN_bm);
+					timers[timernum]->hw.hw0->INTCTRLB &= ~(TC0_CCBINTLVL_gm);
 					break;
 			case timer_ch_c:
 					timers[timernum]->hw.hw0->CTRLB &= ~(TC0_CCCEN_bm);
+					timers[timernum]->hw.hw0->INTCTRLB &= ~(TC0_CCCINTLVL_gm);
 					break;
 			case timer_ch_d:
 					timers[timernum]->hw.hw0->CTRLB &= ~(TC0_CCDEN_bm);
+					timers[timernum]->hw.hw0->INTCTRLB &= ~(TC0_CCDINTLVL_gm);
 					break;
 			default:
 					return EINVAL;
@@ -325,9 +372,11 @@ uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch) {
 			switch (ch) {
 				case timer_ch_a:
 					timers[timernum]->hw.hw1->CTRLB &= ~(TC1_CCAEN_bm);
+					timers[timernum]->hw.hw1->INTCTRLB &= ~(TC1_CCAINTLVL_gm);
 					break;
 				case timer_ch_b:
 					timers[timernum]->hw.hw1->CTRLB &= ~(TC1_CCBEN_bm);
+					timers[timernum]->hw.hw1->INTCTRLB &= ~(TC1_CCBINTLVL_gm);
 					break;
 				default:
 					return EINVAL;
@@ -336,25 +385,43 @@ uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch) {
 		default:
 			return EINVAL;
 	}
+
+	return 0;
 }
 
 /* set up overflows */
-uint8_t timer_ovf(uint8_t timernum, void (*ovf_hook)(uint8_t),
-	uint8_t ovf_ev) {
+/* fixme: move this to init */
+uint8_t timer_ovf(uint8_t timernum, uint8_t ovf_ev) {
 
 	if (timernum >= TIMER_MAX || !timers[timernum]) {
 		return ENODEV;
 	}
 
-	if (ovf_ev >= MAX_EVENT) {
+	if (ovf_ev >= MAX_EVENT && ovf_ev != -1) {
 		return EINVAL;
 	}
 
-	/* install the hook */
-	timers[timernum]->ovf_fn = ovf_hook;
+
+	/* fixme: remove event channel when passed -1 */
 	/* and the event handler */
-	/* FIXME: this is incorrect */
-	*(&EVSYS_CH0MUX+ovf_ev) = TIM0_EV_OVF;
+	if (ovf_ev != -1) {
+		switch (timernum) {
+			case 0:
+				*(&EVSYS_CH0MUX+ovf_ev) = TIM0_EV_OVF;
+				break;
+			case 1:
+				*(&EVSYS_CH0MUX+ovf_ev) = TIM1_EV_OVF;
+				break;
+			case 2:
+				*(&EVSYS_CH0MUX+ovf_ev) = TIM2_EV_OVF;
+				break;
+			case 3:
+				*(&EVSYS_CH0MUX+ovf_ev) = TIM3_EV_OVF;
+				break;
+			default:
+				return ENODEV;
+		}
+	}
 
 	return 0;
 }
@@ -379,3 +446,40 @@ uint8_t timer_count(uint8_t timernum, uint16_t value) {
 
 	return 0;
 }
+
+/* ovf handler */
+void _timer_ovf_hook(uint8_t num) {
+	if (timers[num] && timers[num]->ovf_fn) {
+		(*(timers[num]->ovf_fn))(NULL);
+	}
+}
+
+/* interrupts for OVF results */
+ISR(TCC0_OVF_vect) { _timer_ovf_hook(0); }
+ISR(TCC1_OVF_vect) { _timer_ovf_hook(1); }
+ISR(TCD0_OVF_vect) { _timer_ovf_hook(2); }
+ISR(TCE0_OVF_vect) { _timer_ovf_hook(3); }
+
+/* cmp handler */
+void _timer_cmp_hook(uint8_t num, uint8_t ch) {
+	if (timers[num] && timers[num]->cmp_fn) {
+		(*(timers[num]->cmp_fn))(ch);
+	}
+}
+
+/* interrupts for CMP results */
+ISR(TCC0_CCA_vect) { _timer_cmp_hook(0,0); }
+ISR(TCC0_CCB_vect) { _timer_cmp_hook(0,1); }
+ISR(TCC0_CCC_vect) { _timer_cmp_hook(0,2); }
+ISR(TCC0_CCD_vect) { _timer_cmp_hook(0,3); }
+ISR(TCC1_CCA_vect) { _timer_cmp_hook(1,0); }
+ISR(TCC1_CCB_vect) { _timer_cmp_hook(1,1); }
+ISR(TCD0_CCA_vect) { _timer_cmp_hook(2,0); }
+ISR(TCD0_CCB_vect) { _timer_cmp_hook(2,1); }
+ISR(TCD0_CCC_vect) { _timer_cmp_hook(2,2); }
+ISR(TCD0_CCD_vect) { _timer_cmp_hook(2,3); }
+ISR(TCE0_CCA_vect) { _timer_cmp_hook(3,0); }
+ISR(TCE0_CCB_vect) { _timer_cmp_hook(3,1); }
+ISR(TCE0_CCC_vect) { _timer_cmp_hook(3,2); }
+ISR(TCE0_CCD_vect) { _timer_cmp_hook(3,3); }
+
