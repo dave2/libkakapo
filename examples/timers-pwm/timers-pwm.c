@@ -36,17 +36,19 @@ int main(void) {
  comp = 1;
  dir = 1;
 
- /* now, loop looking to see if millis as hit 0 */
  while (1) {
+  /* bounce off the top and bottom, change direction */
   if (comp > 1022 || comp < 1) {
    dir = 1 - dir;
    PORTE.OUTTGL = PIN2_bm;
   }
+  /* when going up, increase comp value (longer cycle), reverse for down */
   if (dir) {
    comp++;
   } else {
    comp--;
-  }
+  } 
+  /* apply the new duty cycle to the channel */
   timer_comp_val(3,timer_ch_d,comp);
   _delay_ms(2); /* slow the rate at which comp changes */
  }
