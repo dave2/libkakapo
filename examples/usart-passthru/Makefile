@@ -12,7 +12,8 @@ LIBKAKAPO = -lkakapo
 CC        = $(TOOLBASE)/bin/avr-gcc
 AVRDUDE   = /usr/bin/avrdude 
 OBJCOPY   = $(TOOLBASE)/bin/avr-objcopy
-CFLAGS    = -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I. -mmcu=$(MCU) 
+CFLAGS    = -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I. -I../../
+CFLAGS   += -mmcu=$(MCU)
 INCLUDE   = -L../../
 OBJ       = $(patsubst %.c,%.o,$(wildcard *.c))
 

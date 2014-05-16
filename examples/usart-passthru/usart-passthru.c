@@ -4,8 +4,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#include "../../clock.h"
-#include "../../usart.h"
+#include "clock.h"
+#include "usart.h"
 
 FILE * other_usart;
 
