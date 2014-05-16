@@ -1,11 +1,12 @@
 /* Pulse Width Modulation example */
 
-/* This example sets up the timer 3, which is TCE0, to gently fade 
- * the yellow LED on PE3 in and out. As comp changes, the timer will
- * adjust how long during each cycle it will set the LED on. The
- * timer is responsible for actually driving the pin in this mode. 
- * As this cycles very quickly, the LED will appear to have different
- * brightness levels. */
+/* This example sets up the timer 3, which is TCE0, to turn on an LED
+ * for specific duration (duty) in a rapid cycle. This has the effect
+ * of changing what brightness the LED appears to be. We make this
+ * appear to fade in and out by adjusting the duty for the timer 
+ * channel attached to the LED. The timer is actually responsible for
+ * switching the LED on and off as required.
+ */
 
 #define F_CPU 32000000
 #include <avr/io.h>
