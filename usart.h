@@ -84,9 +84,14 @@ int usart_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
 /** \brief Start listening for events and characters, also allows
  *  TX to begin
  *  \param portnum Number of the port
- *  \param state boolean, true or false
  */
-int usart_run(uint8_t portnum, bool_t state);
+int usart_run(uint8_t portnum);
+
+/** \brief Stop listening for events and characters, also allows
+ *  TX to halt. Does not flush state.
+ *  \param portnum Number of the port
+ */
+int usart_stop(uint8_t portnum);
 
 /** \brief Flush the buffers for the serial port
  *  \param portnum Number of the port

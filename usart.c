@@ -322,25 +322,22 @@ int usart_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
 	return 0;
 }
 
-int usart_run(uint8_t portnum, bool_t state) {
+int usart_stop(uint8_t portnum) {
+	if (portnum >= MAX_PORTS || !ports[portnum]) {
+		/* do nothing */
+		return -ENODEV;
+	}
+	ports[portnum]->hw->CTRLB |= (USART_RXEN_bm | USART_TXEN_bm);
+	return 0;
+}
+
+int usart_run(uint8_t portnum) {
 	if (portnum >= MAX_PORTS || !ports[portnum]) {
 		/* do nothing */
 		return -ENODEV;
 	}
 
-	switch (state) {
-		case false:
-			/* disable the TX/RX sides */
-			/* this will discard incoming traffic */
-			ports[portnum]->hw->CTRLB &= ~(USART_RXEN_bm | USART_TXEN_bm);
-			/* don't worry about the interrupts, since we have disabled tx/rx */
-			break;
-		case true:
-			/* re-enable the TX/RX sides */
-			ports[portnum]->hw->CTRLB |= (USART_RXEN_bm | USART_TXEN_bm);
-			break;
-	}
-
+	ports[portnum]->hw->CTRLB &= ~(USART_RXEN_bm | USART_TXEN_bm);
 	return 0;
 }
 
