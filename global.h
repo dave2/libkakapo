@@ -19,10 +19,4 @@
 
 #define F_CPU 32000000
 
-/** \brief Boolean type */
-typedef enum {
-    false,
-    true
-} bool_t;
-
 #endif // GLOBAL_H_INCLUDED
