@@ -94,6 +94,6 @@ void sysclk_uptime(uint32_t *seconds, uint16_t *fraction);
  *
  *  \return current fraction of seconds (10-bit)
  */
-uint16_t sysclk_millis(void);
+uint16_t sysclk_ticks(void);
 
 #endif // CLOCK_H_INCLUDED
