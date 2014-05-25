@@ -1,7 +1,7 @@
 # Where is the toolchain unpacked?
 TOOLBASE ?= /home/dave2/tmp/avr/avr8-gnu-toolchain-linux_x86
 # What MCU do we have on this board?
-MCU	= atxmega64d4
+MCU	?= atxmega64d4
 # Port that Kakapo popped up on
 PORT	?= /dev/ttyUSB1
 # Application name 
