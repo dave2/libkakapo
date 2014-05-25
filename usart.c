@@ -243,7 +243,6 @@ int usart_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
 	void (*rx_fn)(uint8_t)) {
 
 	uint8_t mode = 0;
-	uint32_t div1k;
 	uint8_t bscale = 0;
 	uint16_t bsel;
 
@@ -298,25 +297,70 @@ int usart_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
 	/* RX hook, safe provided RX is disabled */
 	ports[portnum]->rx_fn = rx_fn;
 
-	/* the following code comes from:
-	 * http://blog.omegacs.net/2010/08/18/xmega-fractional-baud-rate-source-code/
-	 */
-	if (baud > (F_CPU/16)) {
+    /* baud rates faster than this are impossible */
+	if (baud > (F_CPU/8)) {
 		return -EBAUD;
 	}
 
-	div1k = ((F_CPU*128) / baud) - 1024;
-	while ((div1k < 2096640) && (bscale < 7)) {
-		bscale++;
-		div1k <<= 1;
-	}
+    /* these are hardcoded values for known frequencies all require CLK2X */
+    /* FIXME: add more clock frequencies */
+    switch (baud) {
+#if (F_CPU == 32000000)
+        case 9600:
+            bsel = 3325;
+            bscale = -3;
+            break;
+        case 19200:
+            bsel = 3317;
+            bscale = -4;
+            break;
+        case 38400:
+            bsel = 3301;
+            bscale = -5;
+            break;
+        case 57600:
+            bsel = 2109;
+            bscale = -5;
+            break;
+        case 115200:
+            bsel = 2158;
+            bscale = -6;
+            break;
+        case 921600:
+            bsel = 428; /* limited by bscale */
+            bscale = -7;
+            break;
+#elif (F_CPU == 2000000)
+        case 9600:
+            bsel = 3205;
+            bscale = -7
+            break;
+        case 19200:
+            bsel = 1539;
+            bscale = -7;
+            break;
+        case 38400:
+            bsel = 705;
+            bscale = -7;
+            break;
+        case 57600:
+            bsel = 428;
+            bscale = -7;
+            break;
+        case 115200:
+            bsel = 150;
+            bscale = -7;
+            break;
+#endif
+        default:
+            return -EBAUD;
+            break;
+    }
 
-	bsel = div1k >> 10;
-
-	ports[portnum]->hw->BAUDCTRLA = bsel&0xff;
-	ports[portnum]->hw->BAUDCTRLB = (bsel>>8) | ((16-bscale) << 4); // was 16-bscale
-
-	/* end nicely borrowed code! */
+    /* apply the results of the calculation */
+	ports[portnum]->hw->BAUDCTRLA = bsel & 0xff;
+	ports[portnum]->hw->BAUDCTRLB = (bsel >> 8) | ((bscale & 0xf)<< 4);
+	ports[portnum]->hw->CTRLB |= USART_CLK2X_bm;
 
 	/* all good! */
 	return 0;
@@ -337,7 +381,7 @@ int usart_run(uint8_t portnum) {
 		return -ENODEV;
 	}
 
-	ports[portnum]->hw->CTRLB &= ~(USART_RXEN_bm | USART_TXEN_bm);
+	ports[portnum]->hw->CTRLB |= (USART_RXEN_bm | USART_TXEN_bm);
 	return 0;
 }
 
