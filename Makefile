@@ -3,7 +3,7 @@
 # Where is the toolchain unpacked?
 TOOLBASE  ?= /usr/local/share/avr8-gnu-toolchain-linux_x86_64
 # What MCU do we have on this board?
-MCU       = atxmega64d4
+MCU       ?= atxmega64d4
 #Tools we'll need
 CC        = $(TOOLBASE)/bin/avr-gcc
 AR        = $(TOOLBASE)/bin/avr-ar
