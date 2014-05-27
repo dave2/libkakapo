@@ -237,7 +237,6 @@ int usart_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
 
 	/* enable rx interrupts */
 	ports[portnum]->hw->CTRLA = (ports[portnum]->hw->CTRLA & ~(USART_RXCINTLVL_gm)) | (ports[portnum]->isr_level & USART_RXCINTLVL_gm);
-	ports[portnum]->hw->CTRLB |= USART_CLK2X_bm;
 
 	/* make sure low-level interrupts are enabled. Note: you still need to enable global interrupts */
 	PMIC.CTRL |= PMIC_LOLVLEX_bm;
