@@ -69,6 +69,7 @@ typedef struct {
 } usart_port_t;
 
 #define MAX_PORTS 2 /**< Maximum number of usart ports supported */
+#define USART_RX_PULLUP /**< Should we force RX pin to have input pull-up */
 
 usart_port_t *ports[MAX_PORTS] = {0,0}; /**< USART port abstractions */
 
@@ -209,12 +210,18 @@ int usart_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
 			PR.PRPC &= ~(PR_USART0_bm);
 			PORTC.DIRSET = PIN3_bm;
 			PORTC.DIRCLR = PIN2_bm;
+#ifdef USART_RX_PULLUP
+            PORTC.PIN2CTRL |= PORT_OPC_PULLUP_gc;
+#endif
 			ports[portnum]->hw = &USARTC0;
 			break;
 		case 1:
 			PR.PRPD &= ~(PR_USART0_bm);
 			PORTD.DIRSET = PIN3_bm;
 			PORTD.DIRCLR = PIN2_bm;
+#ifdef USART_RX_PULLUP
+            PORTD.PIN2CTRL |= PORT_OPC_PULLUP_gc;
+#endif
 			ports[portnum]->hw = &USARTD0;
 			break;
 	}
