@@ -8,8 +8,9 @@ MCU       ?= atxmega64d4
 CC        = $(TOOLBASE)/bin/avr-gcc
 AR        = $(TOOLBASE)/bin/avr-ar
 RANLIB    = $(TOOLBASE)/bin/avr-ranlib
-CFLAGS    = -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I.
-CFLAGS   +=  -mmcu=$(MCU)
+CFLAGS    = -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct
+CFLAGS   += -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I.
+CFLAGS   += -mmcu=$(MCU)
 
 OBJ += adc.o ringbuffer.o spi.o timer.o usart.o twi.o clock.o
 
@@ -22,3 +23,4 @@ libkakapo.a : $(OBJ) Makefile
 
 clean :
 	rm -f $(OBJ) libkakapo.a
+
