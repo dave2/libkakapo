@@ -92,6 +92,22 @@ int spi_init(spi_portname_t portnum) {
 			spi_ports[portnum]->hw = &SPID; /* associate HW */
 			break;
 #endif
+#if defined(SPIE)
+		case spi_e:
+			PR.PRPE &= ~(PR_SPI_bm); /* ensure it's powered up */
+			PORTE.DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
+			PORTE.DIRCLR = (PIN6_bm); /* make inputs */
+			spi_ports[portnum]->hw = &SPIE; /* associate HW */
+			break;
+#endif
+#if defined(SPIF)
+		case spi_f:
+			PR.PRPF &= ~(PR_SPI_bm); /* ensure it's powered up */
+			PORTF.DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
+			PORTF.DIRCLR = (PIN6_bm); /* make inputs */
+			spi_ports[portnum]->hw = &SPIF; /* associate HW */
+			break;
+#endif
     }
 
     /* enable the port and we're good to go */
