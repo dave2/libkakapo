@@ -46,6 +46,27 @@
 #define U_FEAT_NONE 0 /**< USART port feature: None */
 #define U_FEAT_ECHO 1 /**< USART port feature: echoback inside driver */
 
+#if defined(_xmega_type_D4)
+
+#define MAX_PORTS 2 /**< Maximum number of usart ports supported */
+typedef enum {
+ usart_c0, /* First usart port */
+ usart_d0,
+} usart_portname_t;
+
+#elif defined(_xmega_type_A4U)
+
+#define MAX_PORTS 5 /**< Maximum number of usart ports supported */
+typedef enum {
+ usart_c0, /* First usart port */
+ usart_d0,
+ usart_c1,
+ usart_d1,
+ usart_e0
+} usart_portname_t;
+
+#endif // _xmega_type
+
 /** \brief Enum for parity types */
 typedef enum {
 	none, /**< No parity */
@@ -60,7 +81,7 @@ typedef enum {
  *  \param tx_size Size of the TX buffer (must be power of two)
  *  \return 0 for success, negative errors.h values otherwise
  */
-int usart_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size);
+int usart_init(usart_portname_t portnum, uint8_t rx_size, uint8_t tx_size);
 
 /** \brief Set parameters for the port, speed and such like
  *
@@ -78,26 +99,26 @@ int usart_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size);
  *  hook. Must return void, accept uint8_t of current char.
  *  \return 0 for success, negative errors.h values otherwise
  */
-int usart_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
+int usart_conf(usart_portname_t portnum, uint32_t baud, uint8_t bits,
 	parity_t parity, uint8_t stop, uint8_t features, void (*rxfn)(uint8_t));
 
 /** \brief Start listening for events and characters, also allows
  *  TX to begin
  *  \param portnum Number of the port
  */
-int usart_run(uint8_t portnum);
+int usart_run(usart_portname_t portnum);
 
 /** \brief Stop listening for events and characters, also allows
  *  TX to halt. Does not flush state.
  *  \param portnum Number of the port
  */
-int usart_stop(uint8_t portnum);
+int usart_stop(usart_portname_t portnum);
 
 /** \brief Flush the buffers for the serial port
  *  \param portnum Number of the port
  *  \return 0 for success, negative errors.h values otherwise
  */
-int usart_flush(uint8_t portnum);
+int usart_flush(usart_portname_t portnum);
 
 /** \brief Associate a serial port with a stdio stream
  *
@@ -109,6 +130,6 @@ int usart_flush(uint8_t portnum);
  *  \param portnum Number of the port
  *  \return FILE handle, NULL if allocated failed
  */
-FILE *usart_map_stdio(uint8_t portnum);
+FILE *usart_map_stdio(usart_portname_t portnum);
 
 #endif // usart_H_INCLUDED

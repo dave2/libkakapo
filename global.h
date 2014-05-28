@@ -19,4 +19,14 @@
 
 #define F_CPU 32000000
 
+#if defined(__AVR_ATxmega16D4__) || defined(__AVR_ATxmega32D4__) || defined(__AVR_ATxmega64D4__) || defined(__AVR_ATxmega128D4__)
+
+#define _xmega_type_D4
+
+#elif defined(__AVR_ATxmega16A4U__) || defined(__AVR_ATxmega32A4U__) || defined(__AVR_ATxmega64A4U__) || defined(__AVR_ATxmega128A4U__)
+
+#define _xmega_type_A4U
+
+#endif // defined(__AVR
+
 #endif // GLOBAL_H_INCLUDED
