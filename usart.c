@@ -68,7 +68,6 @@ typedef struct {
 	void (*rx_fn)(uint8_t); /**< Callback function for RX */
 } usart_port_t;
 
-#define MAX_PORTS 2 /**< Maximum number of usart ports supported */
 #define USART_RX_PULLUP /**< Should we force RX pin to have input pull-up */
 
 usart_port_t *ports[MAX_PORTS] = {0,0}; /**< USART port abstractions */
@@ -154,27 +153,66 @@ void _usart_tx_run(usart_port_t *port) {
 }
 
 /* interrupt handlers */
+#if defined(USARTC0)
 ISR(USARTC0_DRE_vect) {
-	_usart_tx_isr(ports[0]);
+	_usart_tx_isr(ports[usart_c0]);
 	return;
 }
 ISR(USARTC0_RXC_vect) {
-	_usart_rx_isr(ports[0]);
+	_usart_rx_isr(ports[usart_c0]);
 	return;
 }
+#endif //defined(USARTC0)
 
+#if defined(USARTD0)
 ISR(USARTD0_DRE_vect) {
-	_usart_tx_isr(ports[1]);
+	_usart_tx_isr(ports[usart_d0]);
 	return;
 }
 
 ISR(USARTD0_RXC_vect) {
-	_usart_rx_isr(ports[1]);
+	_usart_rx_isr(ports[usart_d0]);
+	return;
+}
+#endif //defined(USARTD0)
+
+#if defined(USARTC1)
+ISR(USARTC1_DRE_vect) {
+	_usart_tx_isr(ports[usart_c1]);
+	return;
+}
+ISR(USARTC1_RXC_vect) {
+	_usart_rx_isr(ports[usart_c1]);
+	return;
+}
+#endif //defined(USARTC1)
+
+#if defined(USARTD1)
+ISR(USARTD1_DRE_vect) {
+	_usart_tx_isr(ports[usart_d1]);
 	return;
 }
 
+ISR(USARTD1_RXC_vect) {
+	_usart_rx_isr(ports[usart_d1]);
+	return;
+}
+#endif //defined(USARTD1)
+
+#if defined(USARTE0)
+ISR(USARTE0_DRE_vect) {
+	_usart_tx_isr(ports[usart_e0]);
+	return;
+}
+
+ISR(USARTE0_RXC_vect) {
+	_usart_rx_isr(ports[usart_e0]);
+	return;
+}
+#endif //defined(USARTE0)
+
 /* initalise the structures and hardware */
-int usart_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
+int usart_init(usart_portname_t portnum, uint8_t rx_size, uint8_t tx_size) {
 
 	if (ports[portnum] || portnum >= MAX_PORTS) {
 		/* refuse to re-initalise a port or one not allocatable */
@@ -206,24 +244,61 @@ int usart_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
 
 	/* connect the hardware */
 	switch (portnum) {
-		case 0:
+#if defined(USARTC0)
+		case usart_c0:
 			PR.PRPC &= ~(PR_USART0_bm);
 			PORTC.DIRSET = PIN3_bm;
 			PORTC.DIRCLR = PIN2_bm;
 #ifdef USART_RX_PULLUP
             PORTC.PIN2CTRL |= PORT_OPC_PULLUP_gc;
-#endif
+#endif // USART_RX_PULLUP
 			ports[portnum]->hw = &USARTC0;
 			break;
-		case 1:
+#endif // defined(USARTC0)
+#if defined(USARTD0)
+		case usart_d0:
 			PR.PRPD &= ~(PR_USART0_bm);
 			PORTD.DIRSET = PIN3_bm;
 			PORTD.DIRCLR = PIN2_bm;
 #ifdef USART_RX_PULLUP
             PORTD.PIN2CTRL |= PORT_OPC_PULLUP_gc;
-#endif
+#endif // USART_RX_PULLUP
 			ports[portnum]->hw = &USARTD0;
 			break;
+#endif // defined(USARTD0)
+#if defined(USARTC1)
+		case usart_c1:
+			PR.PRPC &= ~(PR_USART1_bm);
+			PORTC.DIRSET = PIN7_bm;
+			PORTC.DIRCLR = PIN6_bm;
+#ifdef USART_RX_PULLUP
+            PORTC.PIN6CTRL |= PORT_OPC_PULLUP_gc;
+#endif // USART_RX_PULLUP
+			ports[portnum]->hw = &USARTC1;
+			break;
+#endif // defined(USARTC1)
+#if defined(USARTD1)
+		case usart_d1:
+			PR.PRPD &= ~(PR_USART1_bm);
+			PORTD.DIRSET = PIN7_bm;
+			PORTD.DIRCLR = PIN6_bm;
+#ifdef USART_RX_PULLUP
+            PORTD.PIN6CTRL |= PORT_OPC_PULLUP_gc;
+#endif // USART_RX_PULLUP
+			ports[portnum]->hw = &USARTD1;
+			break;
+#endif // defined(USARTD1)
+#if defined(USARTE0)
+		case usart_e0:
+			PR.PRPE &= ~(PR_USART0_bm);
+			PORTE.DIRSET = PIN3_bm;
+			PORTE.DIRCLR = PIN2_bm;
+#ifdef USART_RX_PULLUP
+            PORTE.PIN2CTRL |= PORT_OPC_PULLUP_gc;
+#endif // USART_RX_PULLUP
+			ports[portnum]->hw = &USARTE0;
+			break;
+#endif // defined(USARTC0)
 	}
 
 	/* fixme: allow seperate interrupt levels for different ports */
@@ -244,7 +319,7 @@ int usart_init(uint8_t portnum, uint8_t rx_size, uint8_t tx_size) {
 	return 0;
 }
 
-int usart_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
+int usart_conf(usart_portname_t portnum, uint32_t baud, uint8_t bits,
 	parity_t parity, uint8_t stop, uint8_t features,
 	void (*rx_fn)(uint8_t)) {
 
@@ -372,7 +447,7 @@ int usart_conf(uint8_t portnum, uint32_t baud, uint8_t bits,
 	return 0;
 }
 
-int usart_stop(uint8_t portnum) {
+int usart_stop(usart_portname_t portnum) {
 	if (portnum >= MAX_PORTS || !ports[portnum]) {
 		/* do nothing */
 		return -ENODEV;
@@ -381,7 +456,7 @@ int usart_stop(uint8_t portnum) {
 	return 0;
 }
 
-int usart_run(uint8_t portnum) {
+int usart_run(usart_portname_t portnum) {
 	if (portnum >= MAX_PORTS || !ports[portnum]) {
 		/* do nothing */
 		return -ENODEV;
@@ -391,7 +466,7 @@ int usart_run(uint8_t portnum) {
 	return 0;
 }
 
-int usart_flush(uint8_t portnum) {
+int usart_flush(usart_portname_t portnum) {
 
 	if (portnum >= MAX_PORTS || !ports[portnum]) {
 		return -ENODEV;
@@ -441,7 +516,7 @@ int usart_get(FILE *handle) {
 	return _FDEV_EOF;
 }
 
-FILE *usart_map_stdio(uint8_t portnum) {
+FILE *usart_map_stdio(usart_portname_t portnum) {
 	FILE *handle = NULL;
 
 	/* two steps, create the device, and then associate our ports struct with
