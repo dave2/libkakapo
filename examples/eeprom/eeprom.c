@@ -32,12 +32,12 @@ int main(void) {
   sysclk_init();
   sei();
 
-  // configure the usart1 (attached to USB) for 9600,8,N,1 to
+  // configure the usart_d0 (attached to USB) for 9600,8,N,1 to
   // show debugging info, see usart examples for explanation
-  usart_init(1, 128, 128);
-  usart_conf(1, 9600, 8, none, 1, 0, NULL);
-  usart_map_stdio(1);
-  usart_run(1);
+  usart_init(usart_d0, 128, 128);
+  usart_conf(usart_d0, 9600, 8, none, 1, 0, NULL);
+  usart_map_stdio(usart_d0);
+  usart_run(usart_d0);
 
   // wait for EEPROM to be ready
   eeprom_busy_wait();

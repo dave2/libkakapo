@@ -22,11 +22,11 @@ int main(void) {
  sei();
 
  /* configure the usart for 9600,8,N,1 */
- /* usart1 is attached to USB */
- usart_init(1,128,128); /* 128 byte RX and TX buffers */
- usart_conf(1, 9600, 8, none, 1, 0, NULL); /* 9600,8,N,1; no feat; no callback */
- usart_map_stdio(1); /* first allocated one is stdin/stdout/stderr */
- usart_run(1); /* get it going */
+ /* usart_d0 is attached to USB */
+ usart_init(usart_d0, 128, 128); /* 128 byte RX and TX buffers */
+ usart_conf(usart_d0, 9600, 8, none, 1, 0, NULL); /* 9600,8,N,1; no feat; no callback */
+ usart_map_stdio(usart_d0); /* first allocated one is stdin/stdout/stderr */
+ usart_run(usart_d0); /* get it going */
 
  /* blink an LED for each time we write */
  PORTE.DIRSET = PIN3_bm;
