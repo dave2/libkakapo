@@ -46,23 +46,117 @@
 #define U_FEAT_NONE 0 /**< USART port feature: None */
 #define U_FEAT_ECHO 1 /**< USART port feature: echoback inside driver */
 
-#if defined(_xmega_type_D4)
+#if defined (_xmega_type_A1U) || defined (_xmega_type_A1)
 
-#define MAX_PORTS 2 /**< Maximum number of usart ports supported */
+#define MAX_PORTS 8
+#define USART_PORT_INIT {0,0,0,0,0,0,0}
+typedef enum {
+    usart_c0 = 0,
+    usart_c1,
+    usart_d0,
+    usart_d1,
+    usart_e0,
+    usart_e1,
+    usart_f0,
+    usart_f1,
+} usart_portname_t;
+
+#elif defined (_xmega_type_A3U)
+
+#define MAX_PORTS 6
+#define USART_PORT_INIT {0,0,0,0,0,0}
+typedef enum {
+    usart_c0,
+    usart_c1,
+    usart_d0,
+    usart_d1,
+    usart_e0,
+    usart_e1,
+} usart_portname_t;
+
+#elif defined (_xmega_type_256A3BU) || defined(_xmega_type_256A3B)
+
+#define MAX_PORTS 6
+#define USART_PORT_INIT {0,0,0,0,0,0}
+typedef enum {
+    usart_c0,
+    usart_c1,
+    usart_d0,
+    usart_d1,
+    usart_e0,
+    usart_f0,
+} usart_portname_t;
+
+#elif defined(_xmega_type_A4U) || defined(_xmega_type_A4)
+
+#define MAX_PORTS 5 /**< Maximum number of usart ports supported */
+#define USART_PORT_INIT {0,0,0,0,0}
 typedef enum {
  usart_c0, /* First usart port */
+ usart_c1,
+ usart_d0,
+ usart_d1,
+ usart_e0
+} usart_portname_t;
+
+#elif defined(_xmega_type_A3)
+
+#define MAX_PORTS 7 /**< Maximum number of usart ports supported */
+#define USART_PORT_INIT {0,0,0,0,0,0,0}
+typedef enum {
+ usart_c0, /* First usart port */
+ usart_c1,
+ usart_d0,
+ usart_d1,
+ usart_e0,
+ usart_e1,
+ usart_f0,
+} usart_portname_t;
+
+#elif defined (_xmega_type_B1)
+
+#define MAX_PORTS 2 /**< Maximum number of usart ports supported */
+#define USART_PORT_INIT {0,0}
+typedef enum {
+ usart_c0, /* First usart port */
+ usart_e0,
+} usart_portname_t;
+
+#elif defined (_xmega_type_B3)
+
+#define MAX_PORTS 1 /**< Maximum number of usart ports supported */
+#define USART_PORT_INIT {0}
+typedef enum {
+ usart_c0, /* First usart port */
+} usart_portname_t;
+
+#elif defined (_xmega_type_C3) || defined(_xmega_type_D3)
+
+#define MAX_PORTS 3 /**< Maximum number of usart ports supported */
+#define USART_PORT_INIT {0,0,0}
+typedef enum {
+ usart_c0, /* First usart port */
+ usart_d0,
+ usart_e0,
+} usart_portname_t;
+
+#elif defined (_xmega_type_C4)
+
+#define MAX_PORTS 3 /**< Maximum number of usart ports supported */
+#define USART_PORT_INIT {0,0,0}
+typedef enum {
+ usart_c0, /* First usart port */
+ usart_c1,
  usart_d0,
 } usart_portname_t;
 
-#elif defined(_xmega_type_A4U)
+#elif defined(_xmega_type_D4)
 
-#define MAX_PORTS 5 /**< Maximum number of usart ports supported */
+#define MAX_PORTS 2 /**< Maximum number of usart ports supported */
+#define USART_PORT_INIT {0,0}
 typedef enum {
  usart_c0, /* First usart port */
  usart_d0,
- usart_c1,
- usart_d1,
- usart_e0
 } usart_portname_t;
 
 #endif // _xmega_type

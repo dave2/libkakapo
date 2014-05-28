@@ -70,7 +70,7 @@ typedef struct {
 
 #define USART_RX_PULLUP /**< Should we force RX pin to have input pull-up */
 
-usart_port_t *ports[MAX_PORTS] = {0,0}; /**< USART port abstractions */
+usart_port_t *ports[MAX_PORTS] = USART_PORT_INIT; /**< USART port abstractions */
 
 /* private function prototypes */
 
