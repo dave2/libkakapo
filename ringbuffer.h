@@ -19,6 +19,10 @@
 #ifndef RINGBUFFER_H_INCLUDED
 #define RINGBUFFER_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** \file
  *  \brief Ringbuffer public interface
  *
@@ -104,5 +108,8 @@ uint8_t ring_readable(ringbuffer_t *ring);
  */
 uint8_t ring_readable_unsafe(ringbuffer_t *ring);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // RINGBUFFER_H_INCLUDED

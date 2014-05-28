@@ -1,6 +1,10 @@
 #ifndef CLOCK_H_INCLUDED
 #define CLOCK_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Copyright (C) 2014 David Zanetti
  *
  * This program is free software; you can redistribute it and/or modify
@@ -95,5 +99,9 @@ void sysclk_uptime(uint32_t *seconds, uint16_t *fraction);
  *  \return current fraction of seconds (10-bit)
  */
 uint16_t sysclk_ticks(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // CLOCK_H_INCLUDED

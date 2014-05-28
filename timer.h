@@ -1,6 +1,10 @@
 #ifndef TIMER_H_INCLUDED
 #define TIMER_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Copyright (C) 2013 David Zanetti
  *
  * This program is free software; you can redistribute it and/or modify
@@ -153,5 +157,9 @@ uint8_t timer_count(uint8_t timernum, uint16_t value);
  *  \return 0 for success, errors.h otherwise
  */
 uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // TIMER_H_INCLUDED
