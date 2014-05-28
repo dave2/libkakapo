@@ -1,6 +1,10 @@
 #ifndef TWI_H_INCLUDED
 #define TWI_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Copyright (C) 2014 David Zanetti
  *
  * This program is free software; you can redistribute it and/or modify
@@ -50,5 +54,9 @@ int twi_write(uint8_t portnum, uint8_t addr, void *buf, uint8_t len);
  *  \return 0 on success, errors.h otherwise
  */
 int twi_read(uint8_t portnum, uint8_t addr, void *buf, uint8_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // TWI_H_INCLUDED

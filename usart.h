@@ -19,6 +19,10 @@
 #ifndef USART_H_INCLUDED
 #define USART_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "global.h"
 
 /** \file
@@ -225,5 +229,9 @@ int usart_flush(usart_portname_t portnum);
  *  \return FILE handle, NULL if allocated failed
  */
 FILE *usart_map_stdio(usart_portname_t portnum);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // usart_H_INCLUDED

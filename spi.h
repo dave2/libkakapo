@@ -1,6 +1,10 @@
 #ifndef SPI_H_INCLUDED
 #define SPI_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Copyright (C) 2014 David Zanetti
  *
  * This program is free software; you can redistribute it and/or modify
@@ -113,5 +117,8 @@ int spi_conf(spi_portname_t port, spi_clkdiv_t clock, spi_mode_t mode);
  */
 int spi_txrx(spi_portname_t port, uint8_t c);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // SPI_H_INCLUDED

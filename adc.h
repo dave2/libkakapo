@@ -19,6 +19,10 @@
 #ifndef ADC_H_INCLUDED
 #define ADC_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** \file
  *  \brief XMEGA ADC Public Interface
  */
@@ -99,5 +103,9 @@ uint8_t adc_conf(uint8_t chan, adc_input_t input, uint8_t muxpos,
  *  \return ADC value
  */
 uint16_t adc_conv_blocking(uint8_t chan, uint8_t discard, uint8_t count);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // ADC_H_INCLUDED
