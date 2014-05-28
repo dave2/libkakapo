@@ -211,6 +211,43 @@ ISR(USARTE0_RXC_vect) {
 }
 #endif //defined(USARTE0)
 
+#if defined(USARTE1)
+ISR(USARTE0_DRE_vect) {
+	_usart_tx_isr(ports[usart_e1]);
+	return;
+}
+
+ISR(USARTE0_RXC_vect) {
+	_usart_rx_isr(ports[usart_e1]);
+	return;
+}
+#endif //defined(USARTE0)
+
+#if defined(USARTF0)
+ISR(USARTE0_DRE_vect) {
+	_usart_tx_isr(ports[usart_f0]);
+	return;
+}
+
+ISR(USARTE0_RXC_vect) {
+	_usart_rx_isr(ports[usart_f0]);
+	return;
+}
+#endif //defined(USARTE0)
+
+#if defined(USARTF1)
+ISR(USARTE0_DRE_vect) {
+	_usart_tx_isr(ports[usart_f1]);
+	return;
+}
+
+ISR(USARTE0_RXC_vect) {
+	_usart_rx_isr(ports[usart_f1]);
+	return;
+}
+#endif //defined(USARTE0)
+
+
 /* initalise the structures and hardware */
 int usart_init(usart_portname_t portnum, uint8_t rx_size, uint8_t tx_size) {
 
@@ -297,6 +334,39 @@ int usart_init(usart_portname_t portnum, uint8_t rx_size, uint8_t tx_size) {
             PORTE.PIN2CTRL |= PORT_OPC_PULLUP_gc;
 #endif // USART_RX_PULLUP
 			ports[portnum]->hw = &USARTE0;
+			break;
+#endif // defined(USARTC0)
+#if defined(USARTE1)
+		case usart_e1:
+			PR.PRPE &= ~(PR_USART1_bm);
+			PORTE.DIRSET = PIN7_bm;
+			PORTE.DIRCLR = PIN6_bm;
+#ifdef USART_RX_PULLUP
+            PORTE.PIN6CTRL |= PORT_OPC_PULLUP_gc;
+#endif // USART_RX_PULLUP
+			ports[portnum]->hw = &USARTE1;
+			break;
+#endif // defined(USARTC0)
+#if defined(USARTF0)
+		case usart_f0:
+			PR.PRPF &= ~(PR_USART0_bm);
+			PORTF.DIRSET = PIN3_bm;
+			PORTF.DIRCLR = PIN2_bm;
+#ifdef USART_RX_PULLUP
+            PORTF.PIN2CTRL |= PORT_OPC_PULLUP_gc;
+#endif // USART_RX_PULLUP
+			ports[portnum]->hw = &USARTF0;
+			break;
+#endif // defined(USARTC0)
+#if defined(USARTF1)
+		case usart_f1:
+			PR.PRPF &= ~(PR_USART1_bm);
+			PORTF.DIRSET = PIN7_bm;
+			PORTF.DIRCLR = PIN6_bm;
+#ifdef USART_RX_PULLUP
+            PORTF.PIN6CTRL |= PORT_OPC_PULLUP_gc;
+#endif // USART_RX_PULLUP
+			ports[portnum]->hw = &USARTF1;
 			break;
 #endif // defined(USARTC0)
 	}
