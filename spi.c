@@ -58,14 +58,12 @@ typedef struct {
 	/* Fixme: add ringbuffers and callback hooks */
 } spi_port_t;
 
-#define MAX_PORTS 2 /**< Maximum number of SPI ports supported */
-
-spi_port_t *spi_ports[MAX_PORTS] = {0,0}; /**< SPI port abstractions */
+spi_port_t *spi_ports[MAX_SPI_PORTS] = SPI_PORT_INIT; /**< SPI port abstractions */
 
 /* Iniitalise a port */
-int spi_init(uint8_t portnum) {
+int spi_init(spi_portname_t portnum) {
 
-	if (spi_ports[portnum] || portnum >= MAX_PORTS) {
+	if (spi_ports[portnum] || portnum >= MAX_SPI_PORTS) {
 		/* refuse to re-initalise a port or one not allocatable */
 		return -ENODEV;
 	}
@@ -78,18 +76,22 @@ int spi_init(uint8_t portnum) {
 
     /* initilise the hardware */
     switch (portnum) {
-		case 0:
-			PR.PRPD &= ~(PR_SPI_bm); /* ensure it's powered up */
-			PORTD.DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
-			PORTD.DIRCLR = (PIN6_bm); /* make inputs */
-			spi_ports[portnum]->hw = &SPID; /* associate HW */
-			break;
-		case 1:
+#if defined(SPIC)
+		case spi_c:
 			PR.PRPC &= ~(PR_SPI_bm); /* ensure it's powered up */
 			PORTC.DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
 			PORTC.DIRCLR = (PIN6_bm); /* make inputs */
 			spi_ports[portnum]->hw = &SPIC; /* associate HW */
 			break;
+#endif
+#if defined(SPID)
+		case spi_d:
+			PR.PRPD &= ~(PR_SPI_bm); /* ensure it's powered up */
+			PORTD.DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
+			PORTD.DIRCLR = (PIN6_bm); /* make inputs */
+			spi_ports[portnum]->hw = &SPID; /* associate HW */
+			break;
+#endif
     }
 
     /* enable the port and we're good to go */
@@ -100,8 +102,8 @@ int spi_init(uint8_t portnum) {
 }
 
 /* set configuration for a given port */
-int spi_conf(uint8_t portnum, spi_clkdiv_t clock, spi_mode_t mode) {
-	if (portnum >= MAX_PORTS || !spi_ports[portnum]) {
+int spi_conf(spi_portname_t portnum, spi_clkdiv_t clock, spi_mode_t mode) {
+	if (portnum >= MAX_SPI_PORTS || !spi_ports[portnum]) {
 		return -ENODEV;
 	}
 
@@ -126,11 +128,11 @@ int spi_conf(uint8_t portnum, spi_clkdiv_t clock, spi_mode_t mode) {
 /* handle a TX/RX, one char at a time
  * in SPI, there is no explicit separate TX and RX, instead in master the
  * RX is implied by TXing a 0x00 */
-int spi_txrx(uint8_t portnum, uint8_t c) {
+int spi_txrx(spi_portname_t portnum, uint8_t c) {
 	uint8_t in;
 
 	/* check we have a sane port first */
-	if (portnum >= MAX_PORTS || !spi_ports[portnum]) {
+	if (portnum >= MAX_SPI_PORTS || !spi_ports[portnum]) {
 		return -ENODEV;
 	}
 
