@@ -29,13 +29,44 @@ extern "C" {
  * Current implementation only supports master mode and 7-bit addressing.
  */
 
+/** \brief An enum for each supported TWI interface on various families */
+/* A1/A1U have 4 TWI interfaces, B1/B3/E5 has 1, everyone else has 2 */
+#if defined(_xmega_type_A1U) || defined(_xmega_type_A1)
+
+#define MAX_TWI_PORTS 4
+#define TWI_INIT_PORTS {0,0,0,0}
+typedef enum {
+    twi_c = 0,
+    twi_d,
+    twi_e,
+    twi_f,
+} twi_portname_t;
+
+#elif defined(_xmega_type_B1) || defined(_xmega_type_B3) || defined(_xmega_type_E5)
+
+#define MAX_TWI_PORTS 1
+#define TWI_INIT_PORTS {0}
+typedef enum {
+    twi_c = 0,
+} twi_portname_t;
+
+#else
+
+#define MAX_TWI_PORTS 2
+#define TWI_INIT_PORTS {0,0}
+typedef enum {
+    twi_c = 0,
+    twi_e,
+} twi_portname_t;
+
+#endif
 
 /** \brief Initalise a TWI port
  *  \param portnum Number of the port
  *  \param speed Speed of the port, in kHz
  *  \return 0 on success, errors.h otherwise
  */
-int twi_init(uint8_t portnum, uint16_t speed);
+int twi_init(twi_portname_t port, uint16_t speed);
 
 /** \brief Write a byte sequence to the specified address (master)
  *  \param portnum Number of the port
@@ -44,7 +75,7 @@ int twi_init(uint8_t portnum, uint16_t speed);
  *  \param len Length of bytes to write
  *  \return 0 on success, errors.h otherwise
  */
-int twi_write(uint8_t portnum, uint8_t addr, void *buf, uint8_t len);
+int twi_write(twi_portname_t port, uint8_t addr, void *buf, uint8_t len);
 
 /** \brief Read a byte sequence from the specified address (master)
  *  \param portnum Number of the port
@@ -53,7 +84,7 @@ int twi_write(uint8_t portnum, uint8_t addr, void *buf, uint8_t len);
  *  \param len Length of bytes to read
  *  \return 0 on success, errors.h otherwise
  */
-int twi_read(uint8_t portnum, uint8_t addr, void *buf, uint8_t len);
+int twi_read(twi_portname_t port, uint8_t addr, void *buf, uint8_t len);
 
 #ifdef __cplusplus
 }

@@ -27,27 +27,39 @@ typedef struct {
 	TWI_t *hw;
 } twi_port_t;
 
-#define TWI_PORTMAX 2
-
-twi_port_t *twi_ports[TWI_PORTMAX] = {0,0};
+twi_port_t *twi_ports[MAX_TWI_PORTS] = TWI_INIT_PORTS;
 
 /* initalise a port */
-int twi_init(uint8_t portnum, uint16_t speed) {
+int twi_init(twi_portname_t portnum, uint16_t speed) {
 	uint32_t baud;
 
-	if (twi_ports[portnum] || portnum >= TWI_PORTMAX) {
+	if (twi_ports[portnum] || portnum >= MAX_TWI_PORTS) {
 		return -ENODEV;
 	}
 
 	twi_ports[portnum] = malloc(sizeof(twi_port_t));
 
 	switch (portnum) {
-		case 0:
-			twi_ports[portnum]->hw = &TWIE;
-			break;
-		case 1:
+#if defined(TWIC)
+		case twi_c:
 			twi_ports[portnum]->hw = &TWIC;
 			break;
+#endif
+#if defined(TWID)
+		case twi_d:
+			twi_ports[portnum]->hw = &TWID;
+			break;
+#endif
+#if defined(TWIE)
+		case twi_e:
+			twi_ports[portnum]->hw = &TWIE;
+			break;
+#endif
+#if defined(TWIF)
+		case twi_f:
+			twi_ports[portnum]->hw = &TWIF;
+			break;
+#endif
 	}
 
 	/* calculate the TWI baud rate for the CPU frequency */
@@ -66,10 +78,10 @@ int twi_init(uint8_t portnum, uint16_t speed) {
 }
 
 /* write to a givern address a lump of data */
-int twi_write(uint8_t portnum,uint8_t addr,void *buf,uint8_t len) {
+int twi_write(twi_portname_t portnum,uint8_t addr,void *buf,uint8_t len) {
 	twi_port_t *theport;
 
-	if (portnum >= TWI_PORTMAX || !twi_ports[portnum]) {
+	if (portnum >= MAX_TWI_PORTS || !twi_ports[portnum]) {
 		return -ENODEV;
 	}
 	theport = twi_ports[portnum];
@@ -89,7 +101,9 @@ int twi_write(uint8_t portnum,uint8_t addr,void *buf,uint8_t len) {
 	if (theport->hw->MASTER.STATUS & (TWI_MASTER_ARBLOST_bm |
 					 				  TWI_MASTER_BUSERR_bm |
 									  TWI_MASTER_RXACK_bm)) {
+#ifdef DEBUG_TWI
 		printf_P(PSTR("twi: err %x\r\n"),theport->hw->MASTER.STATUS);
+#endif
 		theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
 		return -EIO;
 	}
@@ -111,7 +125,9 @@ int twi_write(uint8_t portnum,uint8_t addr,void *buf,uint8_t len) {
 		if (theport->hw->MASTER.STATUS & (TWI_MASTER_ARBLOST_bm |
 										  TWI_MASTER_BUSERR_bm |
 										  TWI_MASTER_RXACK_bm)) {
+#ifdef DEBUG_TWI
 			printf_P(PSTR("twi: err %x\r\n"),theport->hw->MASTER.STATUS);
+#endif
 			theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
 			return -EIO;
 		}
@@ -125,10 +141,10 @@ int twi_write(uint8_t portnum,uint8_t addr,void *buf,uint8_t len) {
 	return 0;
 }
 
-int twi_read(uint8_t portnum,uint8_t addr, void *buf, uint8_t len) {
+int twi_read(twi_portname_t portnum,uint8_t addr, void *buf, uint8_t len) {
 	twi_port_t *theport;
 
-	if (portnum >= TWI_PORTMAX || !twi_ports[portnum]) {
+	if (portnum >= MAX_TWI_PORTS || !twi_ports[portnum]) {
 		return -ENODEV;
 	}
 	theport = twi_ports[portnum];
@@ -148,7 +164,9 @@ int twi_read(uint8_t portnum,uint8_t addr, void *buf, uint8_t len) {
 	if (theport->hw->MASTER.STATUS & (TWI_MASTER_ARBLOST_bm |
 									  TWI_MASTER_BUSERR_bm |
 									  TWI_MASTER_RXACK_bm)) {
+#ifdef DEBUG_TWI
 		printf_P(PSTR("twi: err %x\r\n"),theport->hw->MASTER.STATUS);
+#endif
 		theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
 		return -EIO;
 	}
@@ -163,7 +181,9 @@ int twi_read(uint8_t portnum,uint8_t addr, void *buf, uint8_t len) {
 		if (theport->hw->MASTER.STATUS & (TWI_MASTER_ARBLOST_bm |
 										  TWI_MASTER_BUSERR_bm |
 										  TWI_MASTER_RXACK_bm)) {
+#ifdef DEBUG_TWI
 			printf_P(PSTR("twi: err %x\r\n"),theport->hw->MASTER.STATUS);
+#endif
 			theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
 			return -EIO;
 		}
