@@ -3,7 +3,7 @@
 /* This example sets up the timer 3, which is TCE0, to turn on an LED
  * for specific duration (duty) in a rapid cycle. This has the effect
  * of changing what brightness the LED appears to be. We make this
- * appear to fade in and out by adjusting the duty for the timer 
+ * appear to fade in and out by adjusting the duty for the timer
  * channel attached to the LED. The timer is actually responsible for
  * switching the LED on and off as required.
  */
@@ -13,6 +13,7 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <stdlib.h>
+#include "global.h"
 #include "timer.h"
 #include "clock.h"
 
@@ -25,10 +26,10 @@ int main(void) {
  /* ensure we're running at the expected clock rate, interrupts enabled */
  sysclk_init();
 
- /* set up timer 3 (TCE0) */
+ /* set up timer attached to yellow LED (TCE0, CH D) */
  /* for this, we just want 1024 levels of brightness */
- timer_init(3,timer_pwm,1023,NULL,NULL); 
- timer_clk(3,timer_perdiv1); /* start it running */
+ timer_init(timer_e0,timer_pwm,1023,NULL,NULL);
+ timer_clk(timer_e0,timer_perdiv1); /* start it running */
 
  PORTE.DIRSET = (PIN2_bm | PIN3_bm); /* make LEDs be LEDs */
 
@@ -47,9 +48,9 @@ int main(void) {
    comp++;
   } else {
    comp--;
-  } 
+  }
   /* apply the new duty cycle to the channel */
-  timer_comp_val(3,timer_ch_d,comp);
+  timer_comp_val(timer_e0,timer_ch_d,comp);
   _delay_ms(2); /* slow the rate at which comp changes */
  }
 

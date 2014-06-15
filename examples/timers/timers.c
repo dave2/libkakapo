@@ -8,6 +8,7 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <stdlib.h>
+#include "global.h"
 #include "timer.h"
 #include "clock.h"
 
@@ -29,18 +30,18 @@ int main(void) {
 
  /* set up timer */
  /* 32MHz -> perclk/1 -> 32000 ticks per ovf -> 1ms */
- timer_init(0,timer_norm,31999,NULL,&timer_overflow_hook); 
- timer_clk(0,timer_perdiv1); /* start it running */
+ timer_init(timer_c0,timer_norm,31999,NULL,&timer_overflow_hook);
+ timer_clk(timer_c0,timer_perdiv1); /* start it running */
 
  PORTE.DIRSET = (PIN2_bm | PIN3_bm); /* make LEDs be LEDs */
 
  /* now, loop looking to see if millis as hit 0 */
  while (1) {
   uint16_t millis_copy;
- 
+
   /* protect access to volatile with all interrupts being disabled */
   cli(); millis_copy = millis; sei();
- 
+
   if (millis_copy < 100) {
    PORTE.OUTSET = PIN2_bm;
   } else {
