@@ -91,7 +91,7 @@ typedef enum {
 #define _HAVE_TIMER_TYPE2
 
 typedef enum {
-    timer_c0 = -,,
+    timer_c0 = 0,
     timer_c1,
     timer_c2,
     timer_d0,
@@ -112,7 +112,7 @@ typedef enum {
 #define _HAVE_TIMER_TYPE1
 
 typedef enum {
-    timer_c0,
+    timer_c0 = 0,
     timer_c1,
     timer_d0,
     timer_e0,
@@ -128,7 +128,7 @@ typedef enum {
 #define _HAVE_TIMER_TYPE2
 
 typedef enum {
-    timer)c0 = 0,
+    timer_c0 = 0,
     timer_c1,
     timer_c2,
     timer_d0,
@@ -178,7 +178,7 @@ typedef enum {
 typedef enum {
     timer_c0 = 0,
     timer_c1,
-    timer_c2,,
+    timer_c2,
     timer_d0,
     timer_d2,
     timer_e0,

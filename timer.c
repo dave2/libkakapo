@@ -132,7 +132,7 @@ uint8_t timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period,
 #ifdef TCD1
         case timer_d1:
             timers[timernum]->type = 1;
-            timers[timernum]->hw.hw1 = &TCD1
+            timers[timernum]->hw.hw1 = &TCD1;
             PR.PRPD &= ~(PR_TC1_bm);
             break;
 #endif // TCD1
