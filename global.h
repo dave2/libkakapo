@@ -19,7 +19,7 @@
 
 #define F_CPU 32000000
 
-//#define QUIRK_AVRLIBC_ADC_INTVCC
+#define QUIRK_AVRLIBC_ADC_INTVCC
 
 /* the following table maps known XMEGA chips into families. Most only vary by size between
  * chips, and what perpherials exist are usually by family.
