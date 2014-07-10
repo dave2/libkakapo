@@ -80,8 +80,12 @@ uint8_t adc_init(adc_mode_t mode, adc_vref_t vref, uint8_t bits,
 		case adc_vref_int1v:
 			ADCA.REFCTRL = ADC_REFSEL_INT1V_gc;
 			break;
-		case adc_vref_intvcc16:
-			ADCA.REFCTRL = ADC_REFSEL_INTVCC_gc; /* really VCC/1.6 */
+		case adc_vref_intvcc16: /* really VCC/1.6 */
+#ifdef QUIRK_AVRLIBC_ADC_INTVCC
+			ADCA.REFCTRL = ADC_REFSEL_INTVCC_gc; 
+#else
+			ADCA.REFCTRL = ADC_REFSEL_VCC_gc;
+#endif
 			break;
 		case adc_vref_arefa:
 			ADCA.REFCTRL = ADC_REFSEL_AREFA_gc;
