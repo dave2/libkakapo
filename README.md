@@ -7,3 +7,4 @@ options.
 
 More about Kakapo: http://hairy.geek.nz/kakapo
 
+This code is provided under the GNU GPL version 2.
