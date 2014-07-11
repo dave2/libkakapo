@@ -51,7 +51,7 @@
 
 #define _xmega_type_A3
 
-#elif defined (__AVR_ATxmega256A3__)
+#elif defined (__AVR_ATxmega256A3B__)
 
 #define _xmega_type_256A3B
 
