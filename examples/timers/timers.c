@@ -26,7 +26,7 @@ void timer_overflow_hook(void) {
 
 int main(void) {
  /* ensure we're running at the expected clock rate, interrupts enabled */
- sysclk_init();
+ kakapo_init();
 
  /* set up timer */
  /* 32MHz -> perclk/1 -> 32000 ticks per ovf -> 1ms */

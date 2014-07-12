@@ -41,6 +41,7 @@ typedef enum {
 	adc_vref_intvcc16, /**< ADC VREF = Internal VCC/1.6 */
 	adc_vref_arefa, /**< ADC VREF = External AREFA pin */
 	adc_vref_arefb, /**< ADC VREF = External AREFB pin */
+	adc_vref_intvcc2, /**< ADC VREF = Internal VCC/2 */
 } adc_vref_t;
 
 /** \brief ADC prescaler clock
