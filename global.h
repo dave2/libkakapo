@@ -94,4 +94,11 @@
 
 #endif // defined(__AVR
 
+/* work out how many channels we have on this hardware */
+#ifdef EVSYS_CH4MUX
+#define MAX_EVENT 8
+#else
+#define MAX_EVENT 4
+#endif // EVSYS_CH4MUX
+
 #endif // GLOBAL_H_INCLUDED

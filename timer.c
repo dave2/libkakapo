@@ -53,13 +53,6 @@ typedef struct {
  	void (*ovf_fn)(); /**< pointer to a top hook for whole timer */
 } timer_t;
 
-/* work out how many channels we have on this hardware */
-#ifdef EVSYS_CH4MUX
-#define MAX_EVENT 8
-#else
-#define MAX_EVENT 4
-#endif // EVSYS_CH4MUX
-
 /* global timer constructs */
 timer_t *timers[MAX_TIMERS] = TIMERS_INIT;
 
