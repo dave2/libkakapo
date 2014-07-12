@@ -19,6 +19,13 @@
 
 #define F_CPU 32000000
 
+/* Some releases of the avr-libc header files used an incorrect name for
+ * the ADC internal voltage references. This will tell adc.c to use the
+ * bad names. This should only be enabled if your get error messages
+ * that "ADC_REFSEL_INTVCC_gc" is undefined.
+ */
+//#define BUG_AVRLIBC_ADC_REFNOINTPREFIX
+
 /* the following table maps known XMEGA chips into families. Most only vary by size between
  * chips, and what perpherials exist are usually by family.
  *
