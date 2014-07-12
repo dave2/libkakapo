@@ -18,212 +18,263 @@
 #include <avr/interrupt.h>
 #include "global.h"
 #include "clock.h"
+#include "errors.h"
 
-uint32_t uptime;
+/* run a specific oscilator */
+int clock_osc_run(osc_type_t osc) {
+    /* set the osc to run, then return when it's ready */
+    switch (osc) {
+        case osc_pll:
+            OSC.CTRL |= OSC_PLLEN_bm;
+            while (!(OSC.STATUS & OSC_PLLRDY_bm)); /* wait for stable */
+            break;
+        case osc_xosc:
+            OSC.CTRL |= OSC_XOSCEN_bm;
+            while (!(OSC.STATUS & OSC_XOSCRDY_bm)); /* wait for stable */
+            break;
+        case osc_rc32khz:
+            OSC.CTRL |= OSC_RC32KEN_bm;
+            while (!(OSC.STATUS & OSC_RC32KRDY_bm)); /* wait for stable */
+            break;
+        case osc_rc32mhz:
+            OSC.CTRL |= OSC_RC32MEN_bm;
+            while (!(OSC.STATUS & OSC_RC32MRDY_bm)); /* wait for stable */
+            break;
+        case osc_rc2mhz:
+            OSC.CTRL |= OSC_RC2MEN_bm;
+            while (!(OSC.STATUS & OSC_RC2MRDY_bm)); /* wait for stable */
+            break;
+        default:
+            return -ENODEV;
+            break;
+    }
+    return 0;
+}
 
-void sysclk_init(void) {
+/* eanble DFLL for a specific oscilator */
+int clock_dfll_enable(osc_type_t osc, dfll_src_t source) {
 
-#ifndef F_CPU
-#error F_CPU must be defined for clock functions
-#endif
+    switch (osc) {
+        case osc_rc32mhz:
+            /* need to do this per source */
+            switch (source) {
+                case dfll_rc32khz:
+                    /* is the source running? */
+                    if (!(OSC.STATUS & OSC_RC32KRDY_bm)) {
+                        return -EINVAL;
+                    }
+                    /* set it as the source */
+                    OSC.DFLLCTRL |= OSC_RC32MCREF_RC32K_gc;
+                    break;
+                case dfll_xosc32khz:
+                    /* first check to see if it's configured sanely */
+                    if ((OSC.XOSCCTRL & OSC_XOSCSEL_gm) != OSC_XOSCSEL_32KHz_gc) {
+                        /* this is not running in 32kHz mode, abort */
+                        return -EINVAL;
+                    }
+                    /* is the source running? */
+                    if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
+                        return -EINVAL;
+                    }
+                    OSC.DFLLCTRL |= OSC_RC32MCREF_XOSC32K_gc;
+                    break;
+                default:
+                    return -EINVAL;
+            }
 
-	/* fire up 32.768kHz external crystal */
-	OSC.XOSCCTRL |= OSC_XOSCSEL_32KHz_gc;
-	OSC.CTRL |= OSC_XOSCEN_bm;
-	while (!(OSC.STATUS & OSC_XOSCRDY_bm));
+        	/* enable DFLL for the 32MHz clock */
+            DFLLRC32M.CTRL |= DFLL_ENABLE_bm;
+            break;
 
-#if F_CPU == 1000000 || F_CPU == 2000000
-	/* Since 2MHz RC is default, just enable DFLL and divide as appropriate */
+        case osc_rc2mhz:
 
-	/* enable DFLL for the 2MHz clock */
-	OSC.DFLLCTRL |= OSC_RC2MCREF_XOSC32K_gc;
-	DFLLRC2M.CTRL |= DFLL_ENABLE_bm;
+            switch (source) {
+                case dfll_rc32khz:
+                    /* is the source running? */
+                    if (!(OSC.STATUS & OSC_RC32KRDY_bm)) {
+                        return -EINVAL;
+                    }
+                    /* set it as the source */
+                    OSC.DFLLCTRL |= OSC_RC2MCREF_RC32K_gc;
+                    break;
+                case dfll_xosc32khz:
+                    /* first check to see if it's configured sanely */
+                    if ((OSC.XOSCCTRL & OSC_XOSCSEL_gm) != OSC_XOSCSEL_32KHz_gc) {
+                        /* this is not running in 32kHz mode, abort */
+                        return -EINVAL;
+                    }
+                    /* is the source running? */
+                    if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
+                        return -EINVAL;
+                    }
+                    OSC.DFLLCTRL |= OSC_RC2MCREF_XOSC32K_gc;
+                    break;
+                default:
+                    return -EINVAL;
+            }
 
-#if F_CPU == 1000000
-	/* for 1MHz, we need to divide the clock down */
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_2_gc | CLK_PSBCDIV_1_1_gc);
-#endif
+        	/* enable DFLL for the 2MHz clock */
+            DFLLRC2M.CTRL |= DFLL_ENABLE_bm;
+            break;
+        default:
+            return -EINVAL;
+    }
 
-#elif F_CPU == 4000000 || F_CPU == 8000000 || F_CPU == 16000000 || F_CPU == 32000000
-	/* for this clock case, divide down the 32MHz RC OSC */
+    return 0;
+}
 
-	/* enable DFLL for 32MHz clock */
-	OSC.DFLLCTRL |= OSC_RC32MCREF_XOSC32K_gc;
-	DFLLRC32M.CTRL |= DFLL_ENABLE_bm;
+int clock_divisor(sclk_psa_t diva, sclk_psbc_t divbc) {
+    uint8_t ps;
 
-	OSC.CTRL |= OSC_RC32MEN_bm; /* run the 32MHz OSC */
-    while (!(OSC.STATUS & OSC_RC32MRDY_bm)); /* wait for it to stablise */
-
-    /* now divide down the output from the clock matching the desired freq */
-#if F_CPU == 4000000
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_8_gc | CLK_PSBCDIV_1_1_gc);
-#elif F_CPU == 8000000
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_4_gc | CLK_PSBCDIV_1_1_gc);
-#elif F_CPU == 16000000
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_2_gc | CLK_PSBCDIV_1_1_gc);
-#elif F_CPU == 32000000
-	/* technically not needed, but here for completeness */
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_1_gc | CLK_PSBCDIV_1_1_gc);
-#endif
-	/* and attach the system clock to it */
-	CCP = CCP_IOREG_gc;
-    CLK.CTRL = CLK_SCLKSEL_RC32M_gc;
-#elif F_CPU == 12000000
-	/* 12MHz clock is obtained using PLL 6x of 2MHz RC OSC */
-	/* enable DFLL for the 2MHz clock */
-	OSC.DFLLCTRL |= OSC_RC2MCREF_XOSC32K_gc;
-	DFLLRC2M.CTRL |= DFLL_ENABLE_bm;
-	/* now fed the 2MHz clock to the PLL, make for 6x */
-    OSC.PLLCTRL = 6; /* 1x input -> 12MHz */
-    OSC.PLLCTRL |= OSC_PLLSRC_RC2M_gc;
-
-	/* start the PLL */
-    OSC.CTRL |= OSC_PLLEN_bm;
-    while (!(OSC.STATUS & OSC_PLLRDY_bm)); /* wait for stable */
-
-    /* okay, we're now good to change to the PLL output */
+    /* check the params first */
+    if (diva > sclk_psa_512 || divbc > sclk_psbc_22) {
+        return -EINVAL;
+    }
+    ps = (diva << CLK_PSADIV_gp) | divbc;
+    /* register protection */
     CCP = CCP_IOREG_gc;
-    CLK.CTRL = CLK_SCLKSEL_PLL_gc;
-#else
-#error Invalid F_CPU specified for clock functions
-#endif
-	/* this should really be in a board_init() or something? */
-	PMIC.CTRL = PMIC_HILVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_LOLVLEN_bm;
- 	sei();
+    CLK.PSCTRL = ps; /* must happen within 4 clocks */
 
-	/* reset uptime */
-	uptime = 0;
-
-	/* select RTC source to be 32.768kHz external crystal */
-	CLK.RTCCTRL = CLK_RTCSRC_TOSC32_gc | CLK_RTCEN_bm;
-
-	/* configure RTC */
-	RTC.CNT = 0;
-	RTC.PER = 32767;
-	RTC.INTCTRL = RTC_OVFINTLVL_LO_gc; /* these are very low prio */
-	/* FIXME: when is this needed? */
-	//while (RTC.STATUS & RTC_SYNCBUSY_bm);
-	/* null body */
-
-	/* run it */
-	RTC.CTRL = RTC_PRESCALER_DIV1_gc;
-
-    return;
+    return 0;
 }
 
-void sysclk_init_perhigh(void) {
+int clock_xosc(xosc_type_t type, xosc_freqrange_t freqrange, uint8_t drive, uint8_t lpm32khz) {
+    /* check for invalid ranges */
+    if (freqrange > xosc_lowspeed) {
+        return -EINVAL;
+    }
+    /* apply configuration */
+    switch (type) {
+        case xosc_extclk:
+            OSC.XOSCCTRL = OSC_XOSCSEL_EXTCLK_gc;
+            break;
+        case xosc_32khz:
+            OSC.XOSCCTRL = OSC_XOSCSEL_32KHz_gc;
+            break;
+        case xosc_xtal_256clk:
+            OSC.XOSCCTRL = OSC_XOSCSEL_XTAL_256CLK_gc;
+            break;
+        case xosc_xtal_1kclk:
+            OSC.XOSCCTRL = OSC_XOSCSEL_XTAL_1KCLK_gc;
+            break;
+        case xosc_xtal_16kclk:
+            OSC.XOSCCTRL = OSC_XOSCSEL_XTAL_16KCLK_gc;
+            break;
+        default:
+            return -EINVAL;
+    }
 
-#ifndef F_CPU
-#error F_CPU must be defined for clock functions
-#endif
+    if (drive) {
+        OSC.XOSCCTRL |= OSC_XOSCPWR_bm;
+    }
+    if (lpm32khz) {
+        OSC.XOSCCTRL |= OSC_X32KLPM_bm;
+    }
+    if (freqrange != xosc_lowspeed) {
+        OSC.XOSCCTRL |= ((freqrange << OSC_FRQRANGE_gp) & OSC_FRQRANGE_gm);
+    }
+    /* all done */
+    return 0;
+}
 
-	/* fire up 32.768kHz external crystal */
-	OSC.XOSCCTRL |= OSC_XOSCSEL_32KHz_gc;
-	OSC.CTRL |= OSC_XOSCEN_bm;
-	while (!(OSC.STATUS & OSC_XOSCRDY_bm));
+int clock_pll(pll_src_t source, uint8_t div2, uint8_t multiplier) {
+    if (source > pll_xosc) {
+        return -EINVAL;
+    }
+    if (multiplier > 31) {
+        return -EINVAL;
+    }
+    /* apply configuration */
+    OSC.PLLCTRL = multiplier;
+    if (div2) {
+        OSC.PLLCTRL |= OSC_PLLDIV_bm;
+    }
+    OSC.PLLCTRL |= (source << OSC_PLLSRC_gp);
+    return 0;
+}
 
-#if F_CPU == 1000000 || F_CPU == 2000000 || F_CPU == 4000000 || F_CPU == 8000000
-	/* enable DFLL for 32MHz clock */
-	OSC.DFLLCTRL |= OSC_RC32MCREF_XOSC32K_gc;
-	DFLLRC32M.CTRL |= DFLL_ENABLE_bm;
+int clock_sysclk(sclk_src_t source) {
+    switch (source) {
+        case sclk_pll:
+            if (!(OSC.STATUS & OSC_PLLRDY_bm)) {
+                return -EINVAL;
+            }
+            break;
+        case sclk_xosc:
+            if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
+                return -EINVAL;
+            }
+            break;
+        case sclk_rc32khz:
+            if (!(OSC.STATUS & OSC_RC32KRDY_bm)) {
+                return -EINVAL;
+            }
+            break;
+        case sclk_rc32mhz:
+            if (!(OSC.STATUS & OSC_RC32MRDY_bm)) {
+                return -EINVAL;
+            }
+            break;
+        case sclk_rc2mhz:
+            if (!(OSC.STATUS & OSC_RC2MRDY_bm)) {
+                return -EINVAL;
+            }; /* wait for stable */
+            break;
+        default:
+            return -ENODEV;
+            break;
+    }
 
-	OSC.CTRL |= OSC_RC32MEN_bm; /* run the 32MHz OSC */
-    while (!(OSC.STATUS & OSC_RC32MRDY_bm)); /* wait for it to stablise */
-
-#if F_CPU == 1000000
-	/* 4, 2, 1MHz clocks */
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_8_gc | CLK_PSBCDIV_2_2_gc);
-#elif F_CPU == 2000000
-	/* 8, 4, 2MHz clocks */
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_4_gc | CLK_PSBCDIV_2_2_gc);
-#elif F_CPU == 4000000
-	/* 16, 8, 4MHz clocks */
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_2_gc | CLK_PSBCDIV_2_2_gc);
-#elif F_CPU == 8000000
-	/* 32, 16, 8MHz clocks */
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_1_gc | CLK_PSBCDIV_2_2_gc);
-#endif
-	/* and attach the system clock to it */
-	CCP = CCP_IOREG_gc;
-    CLK.CTRL = CLK_SCLKSEL_RC32M_gc;
-#elif F_CPU == 16000000 || F_CPU == 32000000
-	/* enable DFLL for 32MHz clock */
-	OSC.DFLLCTRL |= OSC_RC32MCREF_XOSC32K_gc;
-	DFLLRC32M.CTRL |= DFLL_ENABLE_bm;
-
-	OSC.CTRL |= OSC_RC32MEN_bm; /* run the 32MHz OSC */
-    while (!(OSC.STATUS & OSC_RC32MRDY_bm)); /* wait for it to stablise */
-
-	/* PLL needs to be run for these cases */
-#if F_CPU == 16000000
-    OSC.PLLCTRL = 2; /* 2x input -> 64MHz */
-    OSC.PLLCTRL |= OSC_PLLSRC_RC32M_gc;
-    /* 64, 32, 16MHz clocks */
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_1_gc | CLK_PSBCDIV_2_2_gc);
-#elif F_CPU == 3200000
-    OSC.PLLCTRL = 4; /* 4x input -> 128MHz */
-    OSC.PLLCTRL |= OSC_PLLSRC_RC32M_gc;
-    /* 128, 64, 32MHz clocks */
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_1_gc | CLK_PSBCDIV_2_2_gc);
-#endif
-	/* start the PLL */
-    OSC.CTRL |= OSC_PLLEN_bm;
-    while (!(OSC.STATUS & OSC_PLLRDY_bm)); /* wait for stable */
-	/* and attach the system clock to it */
-	CCP = CCP_IOREG_gc;
-    CLK.CTRL = CLK_SCLKSEL_PLL_gc;
-#elif F_CPU == 12000000
-	/* 12MHz clock is obtained using PLL 24x of 2MHz RC OSC, then divide */
-	/* enable DFLL for the 2MHz clock */
-	OSC.DFLLCTRL |= OSC_RC2MCREF_XOSC32K_gc;
-	DFLLRC2M.CTRL |= DFLL_ENABLE_bm;
-
-	/* divide down */
-	CCP = CCP_IOREG_gc;
-    CLK.PSCTRL = (CLK_PSADIV_1_gc | CLK_PSBCDIV_2_2_gc);
-
-	/* now fed the 2MHz clock to the PLL, make for 6x */
-    OSC.PLLCTRL = 24; /* 24x input -> 48MHz */
-    OSC.PLLCTRL |= OSC_PLLSRC_RC2M_gc;
-
-	/* start the PLL */
-    OSC.CTRL |= OSC_PLLEN_bm;
-    while (!(OSC.STATUS & OSC_PLLRDY_bm)); /* wait for stable */
-
-    /* okay, we're now good to change to the PLL output */
+    /* register is protected */
     CCP = CCP_IOREG_gc;
-    CLK.CTRL = CLK_SCLKSEL_PLL_gc;
-#else
-#error Invalid F_CPU specified for clock functions
-#endif
-    return;
+    CLK.CTRL = source; /* must happen within 4 clocks */
+    /* note: there will be a large stall here when enabling this */
+
+    return 0;
 }
 
-void sysclk_uptime(uint32_t *seconds, uint16_t *fraction) {
-	/* FIXME: glitchy? */
-	if (seconds) {
-		*seconds = uptime;
-	}
-	if (fraction) {
-		*fraction = (RTC.CNT << 1); /* left shift by 1 bit to be fixed point */
-	}
+int clock_rtc(rtc_clk_src_t source) {
+
+    switch (source) {
+        case rtc_clk_ulp:
+            /* ulp is enabled by default, so nothing to do here  */
+            break;
+        case rtc_clk_tosc:
+        case rtc_clk_tosc32:
+            /* tosc should be configured and running for 32kHz, in both of theses sources */
+            if ((OSC.XOSCCTRL & ~(OSC_XOSCSEL_gm)) != OSC_XOSCSEL_32KHz_gc) {
+                /* this is not running in 32kHz mode, abort */
+                return -EINVAL;
+            }
+            /* check it's running */
+            if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
+                return -EINVAL;
+            }
+            break;
+        case rtc_clk_rcosc:
+        case rtc_clk_rcosc32:
+            /* check to see clock is running, for either mode */
+            if (!(OSC.STATUS & OSC_RC32KRDY_bm)) {
+                return -EINVAL;
+            }
+            break;
+        case rtc_clk_extclk:
+            /* we *assume* this is a low frequency, but we have no way to check */
+            if ((OSC.XOSCCTRL & ~(OSC_XOSCSEL_gm)) != OSC_XOSCSEL_EXTCLK_gc) {
+                return -EINVAL;
+            }
+            /* check it's running */
+            if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
+                return -EINVAL;
+            }
+            break;
+        default:
+            return -EINVAL;
+    }
+
+    /* now apply the configuration which seems to be valid */
+    CLK.RTCCTRL = (source << CLK_RTCSRC_gm) | CLK_RTCEN_bm;
+
+    return 0;
 }
 
-uint16_t sysclk_ticks(void) {
-	return (RTC.CNT >> 6); /* divide by 32 = 1024Hz */
-}
-
-ISR(RTC_OVF_vect) {
-	uptime++;
-}

@@ -22,83 +22,168 @@ extern "C" {
  */
 
 /** \file
- *  \brief XMEGA clock setup, incl. RTC
+ *  \brief XMEGA clock interface.
  *
- *  Set up clocking system with F_CPU defined clock speed. Optionally
- *  allows per4 and per2 clocks to be 4x and 2x as required. In all
- *  cases, DFLL is used to improve RC oscilator stability.
- *
- *  Also establishes RTC clock and functions to support reading it
- *
- *  Note: Only the following F_CPU values are supported:
- *  - 1MHz (2MHz RC OSC / 2)
- *  - 2MHz (2MHz RC OSC)
- *  - 4MHz (32MHz RC OSC / 8)
- *  - 8MHz (32MHz RC OSC / 4)
- *  - 12MHz (2MHz RC OSC, 6x PLL)
- *  - 16MHz (32MHz RC OSC / 2)
- *  - 32MHz (32MHZ RC OSC)
- *
- *  With per4/per2 enabled, the same F_CPU values are supported with
- *  the following methods:
- *  - 1MHz CPU, 2/4MHz per2/4 (32MHz RC OSC, /8, /2, /2)
- *  - 2MHz CPU, 4/8MHz per2/4 (32MHz RC OSC, /4, /2, /2)
- *  - 4MHz CPU, 8/16MHz per2/4 (32MHz RC OSC, /2, /2, /2)
- *  - 8MHz CPU, 16/32MHz per2/4, (32MHz RC OSC, /1, /2, /2)
- *  - 12MHz CPU, 24/48MHz per2/4, (2MHz RC OSC, 24x PLL, /1, /2, /2)
- *  - 16MHz CPU, 32/64MHz per2/4, (32MHz RC OSC, 2x PLL, /1, /2, /2)
- *  - 32MHz CPU, 64/128MHz per2/4, (32Mhz RC OSC, 4x PLL, /1, /2, /2)
- *
+ *  This provides a number of wrapper functions around the system, rtc,
+ *  and oscilator configuration. The clocking system is run-time
+ *  configurable rather than set by fuses.
  */
 
-/*
- *  FIXME: support 12MHz for <2.7V operation, using 2MHz RC, 6xPLL
- */
+/** \brief What clock source is RTC using */
+typedef enum {
+    rtc_clk_ulp = 0, /**< RTC clocked from internal ULP 32kHz, divided to 1kHz */
+    rtc_clk_tosc, /**< RTC clocked from 32.768kHz on TOSC, divded to 1.024kHz */
+    rtc_clk_rcosc, /**< RTC clocked from 32.768kHz internal, divided to 1.024kHz */
+    rtc_clk_reserved1, /**< Reserved */
+    rtc_clk_reserved2, /**< Reserved */
+    rtc_clk_tosc32, /**< RTC clocked from 32.768kHz on TOSC */
+    rtc_clk_rcosc32, /**< RTC clocked from 32.768kHz internal */
+    rtc_clk_extclk, /**< RTC clocked from external clock on TOSC */
+} rtc_clk_src_t;
 
-/** \brief Configure system clock and RTC
- *
- *  Clock system will be configured to use F_CPU as the CPU frequency.
- *  All perpherial clocks run at same frequency as CPU. See
- *  sysclk_init_perhigh() as alternative if true per4 and per2 clocks
- *  are needed.
- */
+/** \brief System clock source options */
+typedef enum {
+    sclk_rc2mhz = 0, /**< System clocked from internal 2MHz OSC */
+    sclk_rc32mhz, /**< System clocked from internal 32MHz OSC */
+    sclk_rc32khz, /**< System clocked from internal 32.768kHz OSC */
+    sclk_xosc, /**< System clocked from external source (clock or osc) */
+    sclk_pll, /**< System clocked from output of PLL */
+} sclk_src_t;
 
-void sysclk_init(void);
+/** \brief Prescaler A options */
+typedef enum {
+    sclk_psa_1 = 0, /**< Prescaler A No division */
+    sclk_psa_2, /**< Prescaler A div 2 */
+    sclk_psa_4, /**< Prescaler A div 4 */
+    sclk_psa_8, /**< Prescaler A div 8 */
+    sclk_psa_16, /**< Prescaler A div 16 */
+    sclk_psa_32, /**< Prescaler A div 32 */
+    sclk_psa_64, /**< Prescaler A div 64 */
+    sclk_psa_128, /**< Prescaler A div 128 */
+    sclk_psa_256, /**< Prescaler A div 256 */
+    sclk_psa_512, /**< Prescaler A div 512 */
+} sclk_psa_t;
 
-/** \brief Configure system clock, with 4x and 2x perperhial clock
- *  support. Also configures RTC.
- *
- *  This is the same as sysclk_init(), runs CPU clock at F_CPU but
- *  runs per4 and per2 clocks at 4x and 2x CPU clock. This consumes
- *  more power (as it needs the PLL) for 16MHz and 32MHz F_CPU.
- */
-void sysclk_init_perhigh(void);
+/** \brief Prescaler B and C options */
+typedef enum {
+    sclk_psbc_11 = 0, /**< Prescaler B No division, Prescaler C No divison */
+    sclk_psbc_12, /**< Prescaler B No division, Prescaler C div 2 */
+    sclk_psbc_41, /**< Prescaler B div 4, Prescaler C No division */
+    sclk_psbc_22, /**< Prescaler B div 2, Prescaler C div 2 */
+} sclk_psbc_t;
 
-/** \brief Return the current uptime
- *
- *  This function writes the current uptime in seconds and fractions
- *  of a second to the given variables. Note: fractions are expressed
- *  as a fixed point 16-bit number, ie 0.5 seconds == 32768.
- *  Note: either field can be NULL to ignore this portion.
- *
- *  \param *seconds pointer to seconds portion, must be uint32_t
- *  \param *faction pointer to fraction portion, must be uint16_t
- */
-void sysclk_uptime(uint32_t *seconds, uint16_t *fraction);
+/** \brief External high-speed crystal frequency range */
+typedef enum {
+    xosc_04to2mhz = 0, /**< 0.4MHz to 2MHz */
+    xosc_2to9mhz, /**< 2MHz to 9MHz */
+    xosc_9to12mhz, /**< 9MHz to 12MHz */
+    xosc_12to16mhz, /**< 12MHz to 16MHz */
+    xosc_lowspeed, /**< Low speed crystal mode */
+} xosc_freqrange_t;
 
-/** \brief Return current fractions of a second
+/** \brief External clock type selection */
+typedef enum {
+    xosc_extclk = 0, /**< External Clock on XOSC */
+    xosc_32khz, /**< 32.768kHz watch crystal on TOSC */
+    xosc_xtal_256clk, /**< External high-speed crystal, 256 clocks startup */
+    xosc_xtal_1kclk, /**< External high-speed crystal, 1k clocks startup */
+    xosc_xtal_16kclk, /**< External high-speed cyrstal, 16k clocks startup */
+} xosc_type_t;
+
+/** \brief PLL source selection */
+typedef enum {
+    pll_rc2mhz = 0, /**< PLL uses 2MHz internal OSC */
+    pll_reserved, /**< Unused */
+    pll_rc32m, /**< PLL uses 32MHz internal OSC */
+    pll_xosc, /**< PLL uses external OSC */
+} pll_src_t;
+
+/** \brief DFLL reference selection */
+typedef enum {
+    dfll_rc32khz = 0, /**< DFLL uses internal 32.768kHz OSC */
+    dfll_xosc32khz, /**< DFLL uses external 32.768kHz OSC */
+} dfll_src_t;
+
+/** \brief Oscilator selection */
+typedef enum {
+    osc_pll = 0, /**< Enable PLL */
+    osc_xosc, /**< Enable External Oscilator */
+    osc_rc32khz, /**< Enable Internal 32.768kHz OSC */
+    osc_rc32mhz, /**< Enable Internal 32MHz OSC */
+    osc_rc2mhz, /**< Enable Internal 2MHz OSC */
+} osc_type_t;
+
+/** \brief Enable a specific oscilator
  *
- *  This function returns the current fraction of a second over
- *  a range 0-1023, roughly equivilent to milliseconds. The
- *  difference between this value and wall-clock milliseconds
- *  may be up to 2%, however it is very fast to extract from
- *  the hardware.
+ *  Note: this must be called AFTER you have configured the oscilator.
  *
- *  Note: unlike sysclk_uptime(), this is not a fixed point fraction.
- *
- *  \return current fraction of seconds (10-bit)
+ *  \param osc Which oscilator to run
+ *  \return 0 on success, errors.h otherwise
  */
-uint16_t sysclk_ticks(void);
+int clock_osc_run(osc_type_t osc);
+
+/** \brief Set up DFLL for the given OSC.
+ *
+ *  Note: not all OSC have support for DFLL, only the 32MHz internal RC
+ *  and the 2MHz internal RC have DFLL support.
+ *
+ *  \param osc Oscilator to enable DFLL support for
+ *  \param source Source to use for DFLL
+ *  \return 0 on success, errors.h otherwise */
+int clock_dfll_enable(osc_type_t osc, dfll_src_t source);
+
+/** \brief Set the clock divisors
+ *
+ *  Clock divisors are in three stages: A for sclk source to be
+ *  divided which is fed into per4 clock, B for output of A into
+ *  per2 clock, and C for output of B into the system clock and
+ *  per1 clock. C must not exceed 32MHz.
+ *
+ *  \param diva Divisor for stage A
+ *  \param divbc Divisor for stage B and C
+ *  \return 0 on success, errors.h otherwise
+ */
+int clock_divisor(sclk_psa_t diva, sclk_psbc_t divbc);
+
+/** \brief External clock source and capabilities
+ *
+ *  \param type Type of external clock present
+ *  \param freqrange The freqency range for the cyrstal
+ *  \param drive Drive strength, 1 to increase, 0 for default
+ *  \param lpm32khz Low power mode for 32.768kHz crystals, 1 for low power mode
+ *  \return 0 on success, errors.h otherwise
+ */
+int clock_xosc(xosc_type_t type, xosc_freqrange_t freqrange, uint8_t drive, uint8_t lpm32khz);
+
+/** \brief PLL setup
+ *
+ *  PLL can accept several osc sources and multiply them up
+ *  to a higher frequency. This can then be selected as the
+ *  main system clock source.
+ *
+ *  \param source PLL input source
+ *  \param div2 Divide output by 2
+ *  \param multiplier 1-31 clock multiplication
+ *  \return 0 on success, errors.h otherwise
+ */
+int clock_pll(pll_src_t source, uint8_t div2, uint8_t multiplier);
+
+/** \brief Set the system clock sources
+ *
+ *  This should generally be the last call in the process of config
+ *  of the clocks.
+ *
+ *  \param source Source to use for system clock (fed into prescalers)
+ *  \return 0 on success, errors.h otherwise
+ */
+int clock_sysclk(sclk_src_t source);
+
+/** \brief Set the RTC clock source
+ *
+ *  \param source Source to use for RTC clock
+ *  \return 0 on success, error.h otherwise
+ */
+int clock_rtc(rtc_clk_src_t source);
 
 #ifdef __cplusplus
 }
