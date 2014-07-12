@@ -29,7 +29,7 @@ uint32_t bigger = 0;
 char string[STRING_LEN] = "";
 
 int main(void) {
-  sysclk_init();
+  kakapo_init();
   sei();
 
   // configure the usart_d0 (attached to USB) for 9600,8,N,1 to

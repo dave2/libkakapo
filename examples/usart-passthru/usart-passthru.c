@@ -10,7 +10,7 @@
 FILE * other_usart;
 
 int main(void) {
-  sysclk_init();
+  kakapo_init();
   // Enable interrupts for the USARTS
   sei();
 

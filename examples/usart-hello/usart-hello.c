@@ -2,7 +2,7 @@
 
 /* This is a simple demo of avr-libc based usart comms. Once a port is initialised
  * and mapped into a handle or stdio, you can use common libc functions
- * like printf() to interact with the serial port. 
+ * like printf() to interact with the serial port.
  */
 
 #define F_CPU 32000000
@@ -18,7 +18,7 @@
 
 int main(void) {
  /* ensure we're running at the expected clock rate */
- sysclk_init();
+ kakapo_init();
  sei();
 
  /* configure the usart for 9600,8,N,1 */
@@ -37,5 +37,5 @@ int main(void) {
  }
 
  /* never reached */
- return 0; 
+ return 0;
 }

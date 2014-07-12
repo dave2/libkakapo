@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include "global.h"
 #include "timer.h"
-#include "clock.h"
+#include "kakapo.h"
 
 /* our main code */
 
@@ -23,8 +23,8 @@ int main(void) {
  uint16_t comp;
  uint8_t dir;
 
- /* ensure we're running at the expected clock rate, interrupts enabled */
- sysclk_init();
+ /* set up the development board (system clock, LEDs, etc) */
+ kakapo_init();
 
  /* set up timer attached to yellow LED (TCE0, CH D) */
  /* for this, we just want 1024 levels of brightness */
