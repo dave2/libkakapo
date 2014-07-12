@@ -82,7 +82,7 @@ uint8_t adc_init(adc_mode_t mode, adc_vref_t vref, uint8_t bits,
 			break;
 		case adc_vref_intvcc16:
 #ifdef BUG_AVRLIBC_ADC_REFNOINTPREFIX
-			ADCA.REFCTRL = ADC_REFSEL_IVCC_gc; /* really VCC/1.6 */
+			ADCA.REFCTRL = ADC_REFSEL_VCC_gc; /* really VCC/1.6 */
 #else
             ADCA.REFCTRL = ADC_REFSEL_INTVCC_gc; /* really VCC/1.6 */
 #endif
