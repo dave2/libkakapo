@@ -242,7 +242,7 @@ int clock_rtc(rtc_clk_src_t source) {
         case rtc_clk_tosc:
         case rtc_clk_tosc32:
             /* tosc should be configured and running for 32kHz, in both of theses sources */
-            if ((OSC.XOSCCTRL & ~(OSC_XOSCSEL_gm)) != OSC_XOSCSEL_32KHz_gc) {
+            if ((OSC.XOSCCTRL & OSC_XOSCSEL_gm) != OSC_XOSCSEL_32KHz_gc) {
                 /* this is not running in 32kHz mode, abort */
                 return -EINVAL;
             }
@@ -260,7 +260,7 @@ int clock_rtc(rtc_clk_src_t source) {
             break;
         case rtc_clk_extclk:
             /* we *assume* this is a low frequency, but we have no way to check */
-            if ((OSC.XOSCCTRL & ~(OSC_XOSCSEL_gm)) != OSC_XOSCSEL_EXTCLK_gc) {
+            if ((OSC.XOSCCTRL & OSC_XOSCSEL_gm) != OSC_XOSCSEL_EXTCLK_gc) {
                 return -EINVAL;
             }
             /* check it's running */
@@ -273,7 +273,7 @@ int clock_rtc(rtc_clk_src_t source) {
     }
 
     /* now apply the configuration which seems to be valid */
-    CLK.RTCCTRL = (source << CLK_RTCSRC_gm) | CLK_RTCEN_bm;
+    CLK.RTCCTRL = (source << CLK_RTCSRC_gp) | CLK_RTCEN_bm;
 
     return 0;
 }
