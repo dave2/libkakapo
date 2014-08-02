@@ -67,16 +67,16 @@ void _timer_cmp_hook(uint8_t num, uint8_t ch);
 /* implementation! */
 
 /* init the struct, and some asic stuff about the timer */
-uint8_t timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period,
+int timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period,
 					void (*cmp_hook)(uint8_t), void (*ovf_hook)()) {
 	if (timernum >= MAX_TIMERS) {
-		return ENODEV;
+		return -ENODEV;
 	}
 	/* create the timer struct and allocate it a type */
 	timers[timernum] = malloc(sizeof(timer_t));
 
 	if (!timers[timernum]) {
-		return ENOMEM;
+		return -ENOMEM;
 	}
 
 	/* hardware map starts here */
@@ -226,7 +226,7 @@ uint8_t timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period,
 #endif // TCD5
 		default:
 			free(timers[timernum]);
-			return ENODEV;
+			return -ENODEV;
 	}
 
 	/* install the hooks */
@@ -276,16 +276,16 @@ uint8_t timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period,
 #endif // HAVE_TIME_TYPE5
 		default:
 			free(timers[timernum]);
-			return EINVAL;
+			return -EINVAL;
 	}
 
 	return 0;
 }
 
 /* Clock source setting */
-uint8_t timer_clk(uint8_t timernum, timer_clk_src_t clk) {
+int timer_clk(uint8_t timernum, timer_clk_src_t clk) {
 	if (timernum >= MAX_TIMERS || !timers[timernum]) {
-		return ENODEV;
+		return -ENODEV;
 	}
 
 	/* apply the clock source selection to the timer */
@@ -322,12 +322,12 @@ uint8_t timer_clk(uint8_t timernum, timer_clk_src_t clk) {
  * here */
 
 /* set up compares */
-uint8_t timer_comp(uint8_t timernum, timer_chan_t ch, uint16_t value,
+int timer_comp(uint8_t timernum, timer_chan_t ch, uint16_t value,
 	uint8_t cmp_ev) {
 	uint8_t ev_match;
 
 	if (timernum >= MAX_TIMERS || !timers[timernum]) {
-		return ENODEV;
+		return -ENODEV;
 	}
 
 	/* work out the event mux base for compare events */
@@ -505,17 +505,17 @@ uint8_t timer_comp(uint8_t timernum, timer_chan_t ch, uint16_t value,
         /* fixme: type 2 need some special code I think */
         /* fixme: type 4 and 5 timers */
 		default:
-			return EINVAL;
+			return -EINVAL;
 	}
 
 	return 0;
 }
 
 /* change just the compare value */
-uint8_t timer_comp_val(uint8_t timernum, timer_chan_t ch, uint16_t value) {
+int timer_comp_val(uint8_t timernum, timer_chan_t ch, uint16_t value) {
 
 	if (timernum >= MAX_TIMERS || !timers[timernum]) {
-		return ENODEV;
+		return -ENODEV;
 	}
 
 	/* now configure the compare */
@@ -540,7 +540,7 @@ uint8_t timer_comp_val(uint8_t timernum, timer_chan_t ch, uint16_t value) {
 					timers[timernum]->hw.hw0->CTRLB |= TC0_CCDEN_bm;
 					break;
 			default:
-					return EINVAL;
+					return -EINVAL;
 			}
 #endif // _HAVE_TIMER_TYPE0
 #ifdef _HAVE_TIMER_TYPE1
@@ -555,21 +555,21 @@ uint8_t timer_comp_val(uint8_t timernum, timer_chan_t ch, uint16_t value) {
 					timers[timernum]->hw.hw1->CTRLB |= TC1_CCBEN_bm;
 					break;
 				default:
-					return EINVAL;
+					return -EINVAL;
 			}
 			break;
 #endif // _HAVE_TIMER_TYPE1
         /* fixme: type 2, 4, and 5 timers */
 		default:
-			return EINVAL;
+			return -EINVAL;
 	}
 
 	return 0;
 }
 
-uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch) {
+int timer_comp_off(uint8_t timernum, timer_chan_t ch) {
 	if (timernum >= MAX_TIMERS || !timers[timernum]) {
-		return ENODEV;
+		return -ENODEV;
 	}
 
 	/* now configure the compare */
@@ -594,7 +594,7 @@ uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch) {
 					timers[timernum]->hw.hw0->INTCTRLB &= ~(TC0_CCDINTLVL_gm);
 					break;
 			default:
-					return EINVAL;
+					return -EINVAL;
 			}
 #endif // _HAVE_TIMER_TYPE0
 #ifdef _HAVE_TIMER_TYPE1
@@ -609,13 +609,13 @@ uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch) {
 					timers[timernum]->hw.hw1->INTCTRLB &= ~(TC1_CCBINTLVL_gm);
 					break;
 				default:
-					return EINVAL;
+					return -EINVAL;
 			}
 			break;
 #endif // _HAVE_TIMER_TYPE1
         /* fixme: type 2, 4 and 5 timers */
 		default:
-			return EINVAL;
+			return -EINVAL;
 	}
 
 	return 0;
@@ -623,14 +623,14 @@ uint8_t timer_comp_off(uint8_t timernum, timer_chan_t ch) {
 
 /* set up overflows */
 /* fixme: move this to init */
-uint8_t timer_ovf(uint8_t timernum, uint8_t ovf_ev) {
+int timer_ovf(uint8_t timernum, uint8_t ovf_ev) {
 
 	if (timernum >= MAX_TIMERS || !timers[timernum]) {
-		return ENODEV;
+		return -ENODEV;
 	}
 
 	if (ovf_ev >= MAX_EVENT && ovf_ev != -1) {
-		return EINVAL;
+		return -EINVAL;
 	}
 
 	/* fixme: remove event channel when passed -1 */
@@ -718,7 +718,7 @@ uint8_t timer_ovf(uint8_t timernum, uint8_t ovf_ev) {
                 break;
 #endif // TCF5
 			default:
-				return ENODEV;
+				return -ENODEV;
 		}
 	}
 
@@ -726,9 +726,9 @@ uint8_t timer_ovf(uint8_t timernum, uint8_t ovf_ev) {
 }
 
 /* set the current count */
-uint8_t timer_count(uint8_t timernum, uint16_t value) {
+int timer_count(uint8_t timernum, uint16_t value) {
 	if (timernum >= MAX_TIMERS || !timers[timernum]) {
-		return ENODEV;
+		return -ENODEV;
 	}
 
 	/* now configure the count */
@@ -755,7 +755,7 @@ uint8_t timer_count(uint8_t timernum, uint16_t value) {
 			break;
 #endif // _HAVE_TIMER_TYPE5
 		default:
-			return EINVAL;
+			return -EINVAL;
 	}
 
 	return 0;

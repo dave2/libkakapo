@@ -298,7 +298,7 @@ typedef enum {
  *  \param cmp_hook Function to invoke on compare matches
  *  \param ovf_hook Function to invoke on overflow
  *  \return 0 on success, errors.h otherwise */
-uint8_t timer_init(timer_portname_t timer, timer_pwm_t mode, uint16_t period,
+int timer_init(timer_portname_t timer, timer_pwm_t mode, uint16_t period,
 				void (*cmp_hook)(uint8_t), void (*ovf_hook)());
 
 /** \brief Clock the timer from the given source
@@ -309,7 +309,7 @@ uint8_t timer_init(timer_portname_t timer, timer_pwm_t mode, uint16_t period,
  *  \param timernum Number of the timer
  *  \param clk Clock source/divider
  *  \return 0 on success, errors.h otherwise.  */
-uint8_t timer_clk(timer_portname_t timer, timer_clk_src_t clk);
+int timer_clk(timer_portname_t timer, timer_clk_src_t clk);
 
 /** \brief Set the given channel compare
  *
@@ -329,7 +329,7 @@ uint8_t timer_clk(timer_portname_t timer, timer_clk_src_t clk);
  *  \param cmp_ev Event channel to strobe on compare. -1 is none.
  *  \return 0 for success, errors.h otherwise
  */
-uint8_t timer_comp(timer_portname_t timer, timer_chan_t ch, uint16_t value,
+int timer_comp(timer_portname_t timer, timer_chan_t ch, uint16_t value,
 	uint8_t cmp_ev);
 
 /** \brief set the given channel overflow behaviour
@@ -344,7 +344,7 @@ uint8_t timer_comp(timer_portname_t timer, timer_chan_t ch, uint16_t value,
  *  \param ovf_ev Even channel to strobe on overflow, -1 is none.
  *  \return 0 for success, errors.h otherwise
  */
-uint8_t timer_ovf(timer_portname_t timer, uint8_t ovf_ev);
+int timer_ovf(timer_portname_t timer, uint8_t ovf_ev);
 
 /** \brief Set the given channel compare (value only)
  *
@@ -356,7 +356,7 @@ uint8_t timer_ovf(timer_portname_t timer, uint8_t ovf_ev);
  *  \param value Compare value
  *  \return 0 for success, errors.h otherwise
  */
-uint8_t timer_comp_val(timer_portname_t timer, timer_chan_t ch, uint16_t value);
+int timer_comp_val(timer_portname_t timer, timer_chan_t ch, uint16_t value);
 
 /** \brief Force a specific count value
  *
@@ -366,14 +366,14 @@ uint8_t timer_comp_val(timer_portname_t timer, timer_chan_t ch, uint16_t value);
  *  \param value Count value
  *  \return 0 for success, errors.h otherwise
  */
-uint8_t timer_count(timer_portname_t timer, uint16_t value);
+int timer_count(timer_portname_t timer, uint16_t value);
 
 /** \brief Turn off a given channel
  *  \param timernum Number of the timer
  *  \param ch Channel of the timer
  *  \return 0 for success, errors.h otherwise
  */
-uint8_t timer_comp_off(timer_portname_t timer, timer_chan_t ch);
+int timer_comp_off(timer_portname_t timer, timer_chan_t ch);
 
 #ifdef __cplusplus
 }
