@@ -65,7 +65,7 @@ int clock_dfll_enable(osc_type_t osc, dfll_src_t source) {
                 case dfll_rc32khz:
                     /* is the source running? */
                     if (!(OSC.STATUS & OSC_RC32KRDY_bm)) {
-                        return -EINVAL;
+                        return -ENOTREADY;
                     }
                     /* set it as the source */
                     OSC.DFLLCTRL |= OSC_RC32MCREF_RC32K_gc;
@@ -78,7 +78,7 @@ int clock_dfll_enable(osc_type_t osc, dfll_src_t source) {
                     }
                     /* is the source running? */
                     if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
-                        return -EINVAL;
+                        return -ENOTREADY;
                     }
                     OSC.DFLLCTRL |= OSC_RC32MCREF_XOSC32K_gc;
                     break;
@@ -96,7 +96,7 @@ int clock_dfll_enable(osc_type_t osc, dfll_src_t source) {
                 case dfll_rc32khz:
                     /* is the source running? */
                     if (!(OSC.STATUS & OSC_RC32KRDY_bm)) {
-                        return -EINVAL;
+                        return -ENOTREADY;
                     }
                     /* set it as the source */
                     OSC.DFLLCTRL |= OSC_RC2MCREF_RC32K_gc;
@@ -109,7 +109,7 @@ int clock_dfll_enable(osc_type_t osc, dfll_src_t source) {
                     }
                     /* is the source running? */
                     if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
-                        return -EINVAL;
+                        return -ENOTREADY;
                     }
                     OSC.DFLLCTRL |= OSC_RC2MCREF_XOSC32K_gc;
                     break;
@@ -201,31 +201,31 @@ int clock_sysclk(sclk_src_t source) {
     switch (source) {
         case sclk_pll:
             if (!(OSC.STATUS & OSC_PLLRDY_bm)) {
-                return -EINVAL;
+                return -ENOTREADY;
             }
             break;
         case sclk_xosc:
             if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
-                return -EINVAL;
+                return -ENOTREADY;
             }
             break;
         case sclk_rc32khz:
             if (!(OSC.STATUS & OSC_RC32KRDY_bm)) {
-                return -EINVAL;
+                return -ENOTREADY;
             }
             break;
         case sclk_rc32mhz:
             if (!(OSC.STATUS & OSC_RC32MRDY_bm)) {
-                return -EINVAL;
+                return -ENOTREADY;
             }
             break;
         case sclk_rc2mhz:
             if (!(OSC.STATUS & OSC_RC2MRDY_bm)) {
-                return -EINVAL;
+                return -ENOTREADY;
             }; /* wait for stable */
             break;
         default:
-            return -ENODEV;
+            return -EINVAL;
             break;
     }
 
@@ -252,14 +252,14 @@ int clock_rtc(rtc_clk_src_t source) {
             }
             /* check it's running */
             if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
-                return -EINVAL;
+                return -ENOTREADY;
             }
             break;
         case rtc_clk_rcosc:
         case rtc_clk_rcosc32:
             /* check to see clock is running, for either mode */
             if (!(OSC.STATUS & OSC_RC32KRDY_bm)) {
-                return -EINVAL;
+                return -ENOTREADY;
             }
             break;
         case rtc_clk_extclk:
@@ -269,7 +269,7 @@ int clock_rtc(rtc_clk_src_t source) {
             }
             /* check it's running */
             if (!(OSC.STATUS & OSC_XOSCRDY_bm)) {
-                return -EINVAL;
+                return -ENOTREADY;
             }
             break;
         default:

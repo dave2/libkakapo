@@ -34,5 +34,6 @@
 #define ENODEV 19 /**< No such device */
 #define EINVAL 22 /**< Invalid Argument */
 #define EBAUD 134 /**< Baud rate can't be achieved */
+#define ENOTREADY 135 /**< Hardware is not ready */
 
 #endif // ERRORS_H_INCLUDED
