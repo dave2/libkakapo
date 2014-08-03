@@ -2,3 +2,5 @@
 *.a
 *.hex
 *.elf
+*.layout
+*.cbp
