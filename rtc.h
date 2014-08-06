@@ -54,7 +54,7 @@ typedef enum {
  *  \param ovf_ev Event channel to strobe on overflow, -1 is none
  *  \return 0 on success, errors.h otherwise
  */
-int rtc_init(uint16_t period, void (*cmp_hook)(), void (*ovf_hook)());
+int rtc_init(uint16_t period, void (*cmp_hook)(void), void (*ovf_hook)(void));
 
 /** \brief Clock the RTC at the given divisor.
  *

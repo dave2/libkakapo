@@ -299,7 +299,7 @@ typedef enum {
  *  \param ovf_hook Function to invoke on overflow
  *  \return 0 on success, errors.h otherwise */
 int timer_init(timer_portname_t timer, timer_pwm_t mode, uint16_t period,
-				void (*cmp_hook)(uint8_t), void (*ovf_hook)());
+				void (*cmp_hook)(uint8_t), void (*ovf_hook)(void));
 
 /** \brief Clock the timer from the given source
  *

@@ -26,13 +26,13 @@
 #include "errors.h"
 
 /* pointers to the compare/ovf hooks */
-void (*cmp_fn)() = NULL;
-void (*ovf_fn)() = NULL;
+void (*cmp_fn)(void) = NULL;
+void (*ovf_fn)(void) = NULL;
 
 /* FIXME: unsure if the syncbusy checking is in the right places */
 
 /* init the RTC */
-int rtc_init(uint16_t period, void (*cmp_hook)(), void (*ovf_hook)()) {
+int rtc_init(uint16_t period, void (*cmp_hook)(void), void (*ovf_hook)(void)) {
     RTC.PER = period;
     RTC.CNT = 0;
     /* ensure it's all written before we exit */

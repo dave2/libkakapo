@@ -54,7 +54,7 @@ typedef struct {
 #endif
  	} hw;
  	void (*cmp_fn)(uint8_t); /**< pointer to a compare hook, for channel n */
- 	void (*ovf_fn)(); /**< pointer to a top hook for whole timer */
+ 	void (*ovf_fn)(void); /**< pointer to a top hook for whole timer */
 } timer_t;
 
 /* global timer constructs */
@@ -68,7 +68,7 @@ void _timer_cmp_hook(uint8_t num, uint8_t ch);
 
 /* init the struct, and some asic stuff about the timer */
 int timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period,
-					void (*cmp_hook)(uint8_t), void (*ovf_hook)()) {
+					void (*cmp_hook)(uint8_t), void (*ovf_hook)(void)) {
 	if (timernum >= MAX_TIMERS) {
 		return -ENODEV;
 	}
@@ -764,7 +764,7 @@ int timer_count(uint8_t timernum, uint16_t value) {
 /* ovf handler */
 void _timer_ovf_hook(uint8_t num) {
 	if (timers[num] && timers[num]->ovf_fn) {
-		(*(timers[num]->ovf_fn))(NULL);
+		(*(timers[num]->ovf_fn))();
 	}
 }
 
