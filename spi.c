@@ -30,7 +30,7 @@
  *
  *  + spi_conf(): set the bitrate, polarity
  *
- *  + spi_txrx(): submit a single byte to the SPI interface
+ *  + spi_txrx(): write/read from an SPI device arbitrary lengths
  *
  *  Note: all handling of CS lines must be done in your own code,
  *  this code does not presume any specific CS state.
@@ -40,9 +40,6 @@
  *  a CS line attached to it.
  *
  *  To Do:
- *
- *  + Make interrupt driven with buffering
- *
  *  + Support slave mode
  */
 
@@ -148,29 +145,66 @@ int spi_conf(spi_portname_t portnum, spi_clkdiv_t clock, spi_mode_t mode) {
 /* handle a TX/RX, one char at a time
  * in SPI, there is no explicit separate TX and RX, instead in master the
  * RX is implied by TXing a 0x00 */
-int spi_txrx(spi_portname_t portnum, uint8_t c) {
-	uint8_t in;
+int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t len) {
+    /* this is marked as unused explicitly as a discard */
+	uint8_t __attribute__((unused)) discard;
 
 	/* check we have a sane port first */
 	if (portnum >= MAX_SPI_PORTS || !spi_ports[portnum]) {
 		return -ENODEV;
 	}
 
-#ifdef DEBUG_SPI
-	printf_P(PSTR("spi: tx %#x\r\n"),c);
-#endif // DEBUG_SPI
+    /* since we have three cases, depending on NULLs, check for NULL buffers
+     * at the outset. Less branching this way. */
+    if (tx_buf && rx_buf) {
+        /* we have both buffers, read from tx, write to rx */
+        while (len--) {
+            spi_ports[portnum]->hw->DATA = *tx_buf;
+            tx_buf++;
+            /* wait for complete */
+            while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
+            /* NULL BODY */
+            /* read the byte into the rx buffer */
+            *(rx_buf) = spi_ports[portnum]->hw->DATA;
+            rx_buf++;
+        }
+        return 0;
+    }
 
-	/* do it !*/
-	spi_ports[portnum]->hw->DATA = c;
+    if (tx_buf && !rx_buf) {
+        /* discard RX, read from tx */
+        while (len--) {
+            spi_ports[portnum]->hw->DATA = *tx_buf;
+            tx_buf++;
+            while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
+            /* NULL BODY */
+            /* we have to read this even tho we are discarding it */
+            discard = spi_ports[portnum]->hw->DATA;
+        }
+        return 0;
+    }
 
-	while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
-	/* NULL BODY */
+    if (rx_buf && !tx_buf) {
+        /* generate zeros for TX, write to rx */
+        while (len--) {
+            spi_ports[portnum]->hw->DATA = 0;
+            while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
+            /* NULL BODY */
+            /* read the byte into the rx buffer */
+            *(rx_buf) = spi_ports[portnum]->hw->DATA;
+            rx_buf++;
+        }
+        return 0;
+    }
 
-	in = spi_ports[portnum]->hw->DATA; /* side effect: clears IF bit */
+    /* if we reach this, we have something odd like NULL/NULL */
+    /* write zeros and discard, this might be used for a drain? */
+    while (len--) {
+            spi_ports[portnum]->hw->DATA = 0;
+            while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
+            /* we have to read this even tho we are discarding it */
+            discard = spi_ports[portnum]->hw->DATA;
+    }
 
-#ifdef DEBUG_SPI
-	printf_P(PSTR("spi: rx %#x\r\n"),in);
-#endif // DEBUG_SPI
-
-	return in;
+	return 0;
 }

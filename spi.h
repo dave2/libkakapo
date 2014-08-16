@@ -106,6 +106,11 @@ typedef enum {
 int spi_init(spi_portname_t port);
 
 /** \brief Configure and SPI port
+ *
+ *  SPI is clocked from a division of the 1x perpherial clock. Note that
+ *  the maximum clock is F_CPU/2. SPI modes affect whether SCK is high
+ *  or low at the start of a burst, and when MOSI/MISO are sampled.
+ *
  *  \param portnum Number of the port
  *  \param clock Clock division from system clock
  *  \param mode SPI mode to use
@@ -114,12 +119,34 @@ int spi_init(spi_portname_t port);
 int spi_conf(spi_portname_t port, spi_clkdiv_t clock, spi_mode_t mode);
 
 /** \brief Transmit/Receive SPI data
- *  Note: this is blocking code
+ *
+ *  In SPI, receive and transmit are done at the same time on different lines.
+ *  The master set MOSI to the next bit to be sent to the slave, clocks SCK, and
+ *  the slave sets MISO to the next bit to be sent to the master before SCK
+ *  cycle completes, followed by the master reading MISO for the read bit.
+ *
+ *  This means a "read" from a slave device is for the master to clock SCK
+ *  and read MISO. Conversely, a "write" to a slave device is for the master
+ *  to clock SCK with bits already set on MOSI. The other line is effectively
+ *  discarded.
+ *
+ *  This function provides two buffer pointers: one for TX bytes from the master,
+ *  and one for RX bytes from the slave to be stored in. They may be the same buffer
+ *  as TX always happens before RX. If either buffer is NULL either zeros (when
+ *  tx_buf is NULL) or discard (rx_buf is NULL) is the behaviour.
+ *
+ *  A valid way to use this would be to set up a TX buffer containing a command
+ *  and then enough extra bytes to cover the response to that command, with an RX
+ *  buffer sized the same. This allows a single call to do command-response.
+ *
  *  \param portnum Number of the port
- *  \param c Data to transmit
+ *  \param tx_buf A buffer containing len bytes to transmit. May be NULL, this
+ *  forces SPI port to transmit zeros (useful for reads).
+ *  \param rx_buf A buffer containing len bytes to be written to from receive.
+ *  May be NULL, this discards any read data (useful for writes).
  *  \return data received or errors.h
  */
-int spi_txrx(spi_portname_t port, uint8_t c);
+int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t len);
 
 #ifdef __cplusplus
 }
