@@ -31,6 +31,7 @@
 #define ENONE 0 /**< No error */
 #define EIO 5 /**< I/O error */
 #define ENOMEM 12 /**< Out of memory */
+#define EBUSY 16 /**< Device or resource is busy */
 #define ENODEV 19 /**< No such device */
 #define EINVAL 22 /**< Invalid Argument */
 #define EBAUD 134 /**< Baud rate can't be achieved */
