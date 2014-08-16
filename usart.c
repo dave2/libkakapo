@@ -252,7 +252,7 @@ ISR(USARTE0_RXC_vect) {
 
 
 /* initalise the structures and hardware */
-int usart_init(usart_portname_t portnum, uint8_t rx_size, uint8_t tx_size) {
+int usart_init(usart_portname_t portnum, uint16_t rx_size, uint16_t tx_size) {
 
 	if (ports[portnum] || portnum >= MAX_PORTS) {
 		/* refuse to re-initalise a port or one not allocatable */
@@ -265,16 +265,22 @@ int usart_init(usart_portname_t portnum, uint8_t rx_size, uint8_t tx_size) {
 		return -ENOMEM;
 	}
 
+    /* check to see length is possible */
+    if (rx_size > RINGBUFFER_MAX || (rx_size & (rx_size-1)) ||
+        tx_size > RINGBUFFER_MAX || (tx_size & (tx_size-1))) {
+        return -EINVAL;
+    }
+
 	/* create two ringbuffers, one for TX and one for RX */
 
-	ports[portnum]->rxring = ring_create(rx_size-1);
+	ports[portnum]->rxring = ring_create(rx_size);
 	if (!ports[portnum]->rxring) {
 		free(ports[portnum]);
 		ports[portnum] = NULL;
-		return -ENOMEM; /* FIXME: flag usart IO no longer works */
+		return -ENOMEM;
 	}
 
-	ports[portnum]->txring = ring_create(tx_size-1);
+	ports[portnum]->txring = ring_create(tx_size);
 	if (!ports[portnum]->txring) {
 		ring_destroy(ports[portnum]->rxring); /* since the first one succeeded */
 		free(ports[portnum]);

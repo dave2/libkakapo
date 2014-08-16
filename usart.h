@@ -178,12 +178,17 @@ typedef enum {
 
 /* initalise serial port X */
 /** \brief Initalise the given serial port with the sized buffers
+ *
+ *  Buffer sizes for rx_size and tx_size are the total number of
+ *  bytes to buffer. Must be a power of two, and not larger than
+ *  RINGBUFFER_MAX. (see ringbuffer.h)
+ *
  *  \param portnum Number of the port
- *  \param rx_size Size of the RX buffer (must be power of two)
- *  \param tx_size Size of the TX buffer (must be power of two)
+ *  \param rx_size Size of the RX buffer
+ *  \param tx_size Size of the TX buffer
  *  \return 0 for success, negative errors.h values otherwise
  */
-int usart_init(usart_portname_t portnum, uint8_t rx_size, uint8_t tx_size);
+int usart_init(usart_portname_t portnum, uint16_t rx_size, uint16_t tx_size);
 
 /** \brief Set parameters for the port, speed and such like
  *

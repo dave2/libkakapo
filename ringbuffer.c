@@ -32,6 +32,8 @@
  *  must ensure that no concurrent access to a single ringbuffer is possible.
  *  The normal (safe) versions implement this with global interrupt disable,
  *  which is blunt but effective.
+ *
+ *  Note: the current limit for the size of a ringbuffer is 256 bytes.
  */
 
 #include <stdio.h>
@@ -43,8 +45,14 @@
 /* create a ringbuffer, allocating the appropriate space for it's metadata and ring size */
 /* must be a power of two */
 
-ringbuffer_t *ring_create(uint8_t mask) {
+ringbuffer_t *ring_create(uint16_t len) {
 	ringbuffer_t *ring = NULL;
+
+    /* check to see length is power of 2 and not excessive */
+    if (len > RINGBUFFER_MAX || len & (len-1)) {
+        /* not a power of two */
+        return NULL;
+    }
 
 	/* attempt to get some memory for this ringbuffer */
 	ring = malloc(sizeof(ringbuffer_t));
@@ -56,9 +64,9 @@ ringbuffer_t *ring_create(uint8_t mask) {
 	/* init the metadata, first the pointers */
 	ring->head = 0;
 	ring->tail = 0;
-	ring->mask = mask;
+	ring->mask = len-1; /* since this is a power of two, 1 less is the mask */
 	/* now attempt to malloc the space */
-	ring->buf = malloc(mask+1);
+	ring->buf = malloc(len);
 	if (!ring->buf) {
 		free(ring); /* failed! free what we have created so far, give up */
 		return NULL;
