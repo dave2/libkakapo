@@ -131,9 +131,10 @@ int spi_conf(spi_portname_t port, spi_clkdiv_t clock, spi_mode_t mode);
  *  discarded.
  *
  *  This function provides two buffer pointers: one for TX bytes from the master,
- *  and one for RX bytes from the slave to be stored in. They may be the same buffer
- *  as TX always happens before RX. If either buffer is NULL either zeros (when
- *  tx_buf is NULL) or discard (rx_buf is NULL) is the behaviour.
+ *  and one for RX bytes from the slave to be stored in. They MUST NOT be the same
+ *  bufffer, as this seems to cause corruption. If a buffer is NULL the it is
+ *  either generated as 0s (for TX) or discarded (for RX). Generated 0s are required
+ *  because that is how the AVR8 SPI master knows to generate clocks.
  *
  *  A valid way to use this would be to set up a TX buffer containing a command
  *  and then enough extra bytes to cover the response to that command, with an RX
