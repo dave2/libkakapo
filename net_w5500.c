@@ -476,7 +476,9 @@ int w5500_init(spi_portname_t spi_port, PORT_t *cs_port, uint8_t cs_pin,
 #endif // DEBUG_W5500
 	if (!memcmp(ip,regtest,6)) {
 		/* failed to reset the chip */
+#ifdef DEBUG_W5500
 		printf_P(PSTR("w5500: reset failed, aborting\r\n"));
+#endif
 		w5500_port = NULL;
 		return -ENODEV;
 	}
@@ -485,9 +487,6 @@ int w5500_init(spi_portname_t spi_port, PORT_t *cs_port, uint8_t cs_pin,
     for (i = 0; i < W5500_MAX_SOCKETS; i++) {
         _write_reg(BLK_SOCKET_REG(i),SOCK_RXBUF_SIZE,2);
         _write_reg(BLK_SOCKET_REG(i),SOCK_TXBUF_SIZE,2);
-//        printf_P(PSTR("%d:rx=%d;tx=%d\r\n"),i,
-//            _read_reg(BLK_SOCKET_REG(i),SOCK_RXBUF_SIZE),
-//            _read_reg(BLK_SOCKET_REG(i),SOCK_TXBUF_SIZE));
     }
 
 	/* write the MAC to the approprate registers */
@@ -525,13 +524,17 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize) {
     /* now check to see the socket is not already in in use */
     if (_socktable[socknum].state != S_CLOSED &&
         _socktable[socknum].state != S_UNPREP) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: socket in use, cannot (re-)init\r\n"));
+#endif
         return -EBUSY;
     }
 
     /* check to see the underlying hardware is actually closed */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: hw socket not closed, no init\r\n"));
+#endif
         return -EBUSY;
     }
 
@@ -542,20 +545,19 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize) {
     _socktable[socknum].socknum = socknum;
 
     /* configure the socket on the chip as per definitions above */
-    //_write_reg(BLK_SOCKET_REG(socknum),SOCK_RXBUF_SIZE,rxsize);
-    //_write_reg(BLK_SOCKET_REG(socknum),SOCK_TXBUF_SIZE,txsize);
+    _write_reg(BLK_SOCKET_REG(socknum),SOCK_RXBUF_SIZE,rxsize);
+    _write_reg(BLK_SOCKET_REG(socknum),SOCK_TXBUF_SIZE,txsize);
 
     /* we're all done, get out of there */
     return 0;
 }
 
 int w5500_socket_listen(uint8_t socknum, uint16_t port) {
-
+    return -EINVAL;
 }
 
 int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port) {
     uint16_t sport;
-    uint16_t x;
 
     /* sanity check */
     if (socknum > W5500_MAX_SOCKETS) {
@@ -563,13 +565,17 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port) {
     }
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_CLOSED) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: socket not ready for connect\r\n"));
+#endif
         return -ENOTREADY;
     }
 
     /* check to see the socket is actually closed at this point */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: hw socket busy\r\n"));
+#endif
         return -EBUSY;
     }
 
@@ -596,16 +602,11 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port) {
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_CR,SOCK_CR_CONNECT);
 
     /* watch the interrupt reg for change of state */
-    while (!((x = _read_reg(BLK_SOCKET_REG(socknum),SOCK_IR)) & (SOCK_IR_CON | SOCK_IR_TIMEOUT)));
+    while (!(_read_reg(BLK_SOCKET_REG(socknum),SOCK_IR) & (SOCK_IR_CON | SOCK_IR_TIMEOUT)));
     /* null body */
+
     /* clear the flags since we will just check it via the SOCK_SR register */
-
-    //printf_P(PSTR("s=%x,now=%x\r\n"),x,_read_reg(BLK_SOCKET_REG(socknum),SOCK_IR));
-
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_IR,(SOCK_IR_CON | SOCK_IR_TIMEOUT));
-
-    //x = _read_reg(BLK_SOCKET_REG(socknum),SOCK_SR);
-    //printf_P(PSTR("sr=%x"),x);
 
     /* either we got a timeout or we got an established connection */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) == SOCK_SR_ESTABLISHED) {
@@ -619,13 +620,17 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port) {
 
     /* figure out if we got a destination unreachable or not */
     if (_read_reg(BLK_COMMON,COM_IR) && COM_IR_UNREACH) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: icmp unreachable\r\n"));
+#endif
         _write_reg(BLK_COMMON,COM_IR,COM_IR_UNREACH);
         return -EHOSTUNREACH;
     }
 
     /* we don't know, it just didn't work */
+#ifdef DEBUG_W5500
     printf_P(PSTR("w5500: connect timeout\r\n"));
+#endif
     return -ETIME;
 
 }
@@ -638,17 +643,11 @@ int w5500_tcp_close(uint8_t socknum) {
         return -EINVAL;
     }
 
-    /* make sure we're in the right state */
-    /* we should be in listen or estab */
-    /* allow us to close sockets in any internal state */
-    //if (_socktable[socknum].state == S_CLOSED) {
-    //    printf_P(PSTR("w5500: can't close socket not in use\r\n"));
-    //    return -EINVAL;
-    //}
-
     /* check to see we're not actually working on a closed socket already */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) == SOCK_SR_CLOSED) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: hw socket already closed\r\n"));
+#endif
         _socktable[socknum].state = S_CLOSED;
         return -EINVAL;
     }
@@ -693,7 +692,9 @@ int _sock_tcp_put(char s, FILE *handle) {
     /* check to see if the socket has been closed on us */
     if (_read_reg(BLK_SOCKET_REG(sock->socknum),SOCK_SR) != SOCK_SR_ESTABLISHED) {
         /* close it */
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: lost connection\r\n"));
+#endif
         w5500_tcp_close(sock->socknum);
         return _FDEV_ERR;
     }
@@ -706,7 +707,9 @@ int _sock_tcp_put(char s, FILE *handle) {
         /* work out if we can clear some space */
         if (chip_txfree < sock->buflen) {
             /* nope, so oh well, you can't write at the moment */
+#ifdef DEBUG_W5500
             printf_P(PSTR("w5500: tx buffer overrun\r\n"));
+#endif
             return _FDEV_ERR;
         }
         /* send the bulk data, and increment the write pointer to match */
@@ -772,7 +775,9 @@ int w5500_tcp_push(uint8_t socknum) {
 
     /* check to see we're not trying to push a closed socket */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_ESTABLISHED) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: lost connection\r\n"));
+#endif
         w5500_tcp_close(0);
         return -EIO;
     }
@@ -798,7 +803,9 @@ int w5500_tcp_push(uint8_t socknum) {
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_IR,SOCK_IR_SENDOK | SOCK_IR_DISCON | SOCK_IR_TIMEOUT);
     /* work out why we exited */
     if (stat & SOCK_IR_DISCON || stat & SOCK_IR_TIMEOUT) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: lost connection\r\n"));
+#endif
         w5500_tcp_close(0);
         return -EIO;
     }
@@ -852,8 +859,6 @@ int _sock_tcp_get(FILE *handle) {
          * many window updates on the wire */
         chip_rxlen = _read_reg16(BLK_SOCKET_REG(sock->socknum),SOCK_RX_RSR0);
 
-        //printf_P(PSTR("%04x\r\n"),chip_rxlen);
-
         if (chip_rxlen == 0) {
             /* force an ACK, just in case */
             _write_reg(BLK_SOCKET_REG(sock->socknum),SOCK_CR,SOCK_CR_RECV);
@@ -865,9 +870,6 @@ int _sock_tcp_get(FILE *handle) {
         /* we now know how many bytes are waiting in the socket, read up to buflen of them */
         if (chip_rxlen > sock->buflen) {
             chip_rxlen = sock->buflen;
-        } else {
-            /* running out of data to read, get some more */
-           // _write_reg(BLK_SOCKET_REG(sock->socknum),SOCK_CR,SOCK_CR_RECV);
         }
         /* read into the buffer unread data */
         /* we always get the current pointer, just in case */
@@ -942,7 +944,9 @@ int w5500_udp_listen(uint8_t socknum, uint16_t port) {
     }
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_CLOSED) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: socket not ready for connect\r\n"));
+#endif
         return -ENOTREADY;
     }
 
@@ -950,14 +954,18 @@ int w5500_udp_listen(uint8_t socknum, uint16_t port) {
     for (n = 0; n < W5500_MAX_SOCKETS; n++) {
         if (_socktable[n].port == port) {
             /* fail! */
+#ifdef DEBUG_W5500
             printf_P(PSTR("w5500: port in use\r\n"));
+#endif
             return -EBUSY;
         }
     }
 
     /* check to see the socket is actually closed at this point */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: hw socket busy\r\n"));
+#endif
         return -EBUSY;
     }
 
@@ -988,7 +996,9 @@ int w5500_udp_close(uint8_t socknum) {
 
     /* check to see we're not actually working on a closed socket already */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_UDP) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: hw socket not udp\r\n"));
+#endif
         /* don't touch the socket */
         return -EINVAL;
     }
@@ -1053,14 +1063,18 @@ int w5500_udp_read(uint8_t socknum, uint16_t len, uint8_t *buf) {
 
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_ESTAB) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: read from closed socket\r\n"));
+#endif
         return -EIO;
     }
 
     /* check to see if the socket has been closed on us */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_UDP) {
-        /* close it */
+        /* toss error */
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: read from closed socket\r\n"));
+#endif
         return -EIO;
     }
 
@@ -1098,14 +1112,18 @@ int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf) {
 
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_ESTAB) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: read from closed socket\r\n"));
+#endif
         return -EIO;
     }
 
     /* check to see if the socket has been closed on us */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_UDP) {
-        /* close it */
+        /* toss error */
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: read from closed socket\r\n"));
+#endif
         return -EIO;
     }
 
@@ -1137,14 +1155,18 @@ int w5500_udp_send(uint8_t socknum, uint8_t *ip, uint16_t port) {
 
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_ESTAB) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: read from closed socket\r\n"));
+#endif
         return -EIO;
     }
 
     /* check to see if the socket has been closed on us */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_UDP) {
-        /* close it */
+        /* toss error */
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: read from closed socket\r\n"));
+#endif
         return -EIO;
     }
     /* set dest details */
@@ -1161,7 +1183,9 @@ int w5500_udp_send(uint8_t socknum, uint8_t *ip, uint16_t port) {
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_IR,SOCK_IR_SENDOK | SOCK_IR_TIMEOUT);
     /* work out why we exited */
     if (stat & SOCK_IR_TIMEOUT) {
+#ifdef DEBUG_W5500
         printf_P(PSTR("w5500: udp timeout\r\n"));
+#endif
         /* we don't close it, we just allow you to make that decision yourself */
         return -EIO;
     }

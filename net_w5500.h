@@ -85,7 +85,7 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize);
  *  on our end in the range 1024-65535
  *
  *  \param socknum Socket number (from zero)
- *  \param addr IPv4 address
+ *  \param addr[4] IPv4 address
  *  \param port Destination port
  *  \return 0 on success, errors.h otherwise
  */
@@ -181,7 +181,7 @@ int w5500_udp_listen(uint8_t socknum, uint16_t port);
  *  is broken in some way, and it'll be closed automatically.
  *
  *  \param socknum Socket number to use (must have been udp_listen before)
- *  \param ip Buffer to write far IP address into (4 bytes)
+ *  \param ip[4] Buffer to write far IP address into (4 bytes)
  *  \param port Buffer to write far port into (2 bytes)
  *  \param len Buffer to write far paylong length into (2 bytes)
  *  \return 0 on success, errors.h otherwise
@@ -199,7 +199,7 @@ int w5500_udp_rxmeta(uint8_t socknum, uint8_t *ip, uint16_t *port, uint16_t *len
  *
  *  \param socknum Socket number to use
  *  \param len Length of bytes to read
- *  \param buf Pointer to buffer to write to (may be NULL)
+ *  \param buf[] Pointer to buffer to write to (may be NULL)
  *  \return actual number of bytes provided
  */
 int w5500_udp_read(uint8_t socknum, uint16_t len, uint8_t *buf);
@@ -220,7 +220,7 @@ int w5500_udp_close(uint8_t socknum);
  *
  *  \param socknum Socket number to use
  *  \param len Length of the data to buffer
- *  \param buf Pointer to the buffer to read from
+ *  \param buf[] Pointer to the buffer to read from
  *  \return 0 on success, errors.h otherwise
  */
 int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf);
@@ -234,7 +234,7 @@ int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf);
  *  this state yourself.
  *
  *  \param socknum Socket number to use
- *  \param ip IP address to send to
+ *  \param ip[4] IP address to send to
  *  \param port UDP port to send to
  *  \return 0 on success, errors.h otherwise.
  */
