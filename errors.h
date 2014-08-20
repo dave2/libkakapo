@@ -34,6 +34,8 @@
 #define EBUSY 16 /**< Device or resource is busy */
 #define ENODEV 19 /**< No such device */
 #define EINVAL 22 /**< Invalid Argument */
+#define ETIME 62 /**< Timer expired */
+#define EHOSTUNREACH 113 /**< Host is not reachable */
 #define EBAUD 134 /**< Baud rate can't be achieved */
 #define ENOTREADY 135 /**< Hardware is not ready */
 

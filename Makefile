@@ -12,7 +12,7 @@ CFLAGS    = -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -f
 CFLAGS   += -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I.
 CFLAGS   += -mmcu=$(MCU)
 
-OBJ += adc.o ringbuffer.o spi.o timer.o usart.o twi.o clock.o rtc.o wdt.o kakapo.o
+OBJ += adc.o ringbuffer.o spi.o timer.o usart.o twi.o clock.o rtc.o wdt.o net_w5500.o kakapo.o
 
 libkakapo.a : $(OBJ) Makefile
 	$(AR) cr libkakapo.a $(OBJ)
