@@ -1,21 +1,25 @@
-#ifndef NET_W5500_H_INCLUDED
-#define NET_W5500_H_INCLUDED
-
 /* Copyright (C) 2014 David Zanetti
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This file is part of libkakapo.
  *
- * This program is distributed in the hope that it will be useful,
+ * libkakapo is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License.
+ *
+ * libkakapo is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with libkapapo.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
+
+#ifndef NET_W5500_H_INCLUDED
+#define NET_W5500_H_INCLUDED
 
 /** \file
  *  \brief W5500 driver public interface
