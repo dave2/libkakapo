@@ -1,5 +1,5 @@
-#ifndef W5500_H_INCLUDED
-#define W5500_H_INCLUDED
+#ifndef NET_W5500_H_INCLUDED
+#define NET_W5500_H_INCLUDED
 
 /* Copyright (C) 2014 David Zanetti
  *
@@ -236,4 +236,4 @@ int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf);
  */
 int w5500_udp_send(uint8_t socknum, uint8_t *ip, uint16_t port);
 
-#endif // W5500_H_INCLUDED
+#endif // NET_W5500_H_INCLUDED
