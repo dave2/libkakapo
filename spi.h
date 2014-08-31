@@ -100,7 +100,7 @@ typedef enum {
 #endif
 
 /** \brief Initalise an SPI port
- *  \param portnum Number of the port
+ *  \param port Name of the port
  *  \return 0 for sucess, errors.h otherwise
  */
 int spi_init(spi_portname_t port);
@@ -111,12 +111,13 @@ int spi_init(spi_portname_t port);
  *  the maximum clock is F_CPU/2. SPI modes affect whether SCK is high
  *  or low at the start of a burst, and when MOSI/MISO are sampled.
  *
- *  \param portnum Number of the port
+ *  \param port Name of the port
  *  \param clock Clock division from system clock
  *  \param mode SPI mode to use
+ *  \param txdummy What to TX when generating clocks (see spi_txrx()).
  *  \return 0 for success, errors.h otherwise
  */
-int spi_conf(spi_portname_t port, spi_clkdiv_t clock, spi_mode_t mode);
+int spi_conf(spi_portname_t port, spi_clkdiv_t clock, spi_mode_t mode, uint8_t txdummy);
 
 /** \brief Transmit/Receive SPI data
  *
@@ -133,21 +134,18 @@ int spi_conf(spi_portname_t port, spi_clkdiv_t clock, spi_mode_t mode);
  *  This function provides two buffer pointers: one for TX bytes from the master,
  *  and one for RX bytes from the slave to be stored in. They MUST NOT be the same
  *  bufffer, as this seems to cause corruption. If a buffer is NULL the it is
- *  either generated as 0s (for TX) or discarded (for RX). Generated 0s are required
- *  because that is how the AVR8 SPI master knows to generate clocks.
+ *  either generated (for TX) or discarded (for RX). The data generated is based
+ *  on the txdummy param from spi_conf(). This is required as the SPI master must
+ *  generate clocks, which it only does when it has data to transmit.
  *
- *  A valid way to use this would be to set up a TX buffer containing a command
- *  and then enough extra bytes to cover the response to that command, with an RX
- *  buffer sized the same. This allows a single call to do command-response.
- *
- *  \param portnum Number of the port
+ *  \param port Name of the port
  *  \param tx_buf A buffer containing len bytes to transmit. May be NULL, this
  *  forces SPI port to transmit zeros (useful for reads).
  *  \param rx_buf A buffer containing len bytes to be written to from receive.
  *  May be NULL, this discards any read data (useful for writes).
  *  \return data received or errors.h
  */
-int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t len);
+int spi_txrx(spi_portname_t port, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t len);
 
 #ifdef __cplusplus
 }

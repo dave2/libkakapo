@@ -56,6 +56,8 @@
  */
 typedef struct {
 	SPI_t *hw; /**< Pointer to real hardware */
+	PORT_t *port; /**< Pointer to the port to use */
+	uint8_t txdummy; /**< What to pad generated TX with */
 	/* Fixme: add ringbuffers and callback hooks */
 } spi_port_t;
 
@@ -75,41 +77,43 @@ int spi_init(spi_portname_t portnum) {
 		return -ENOMEM;
 	}
 
-    /* initilise the hardware */
+    /* populate HW structs */
     switch (portnum) {
 #if defined(SPIC)
 		case spi_c:
 			PR.PRPC &= ~(PR_SPI_bm); /* ensure it's powered up */
-			PORTC.DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
-			PORTC.DIRCLR = (PIN6_bm); /* make inputs */
+			spi_ports[portnum]->port = &PORTC;
 			spi_ports[portnum]->hw = &SPIC; /* associate HW */
 			break;
 #endif
 #if defined(SPID)
 		case spi_d:
 			PR.PRPD &= ~(PR_SPI_bm); /* ensure it's powered up */
-			PORTD.DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
-			PORTD.DIRCLR = (PIN6_bm); /* make inputs */
+			spi_ports[portnum]->port = &PORTD;
 			spi_ports[portnum]->hw = &SPID; /* associate HW */
 			break;
 #endif
 #if defined(SPIE)
 		case spi_e:
 			PR.PRPE &= ~(PR_SPI_bm); /* ensure it's powered up */
-			PORTE.DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
-			PORTE.DIRCLR = (PIN6_bm); /* make inputs */
+			spi_ports[portnum]->port = &PORTE;
 			spi_ports[portnum]->hw = &SPIE; /* associate HW */
 			break;
 #endif
 #if defined(SPIF)
 		case spi_f:
 			PR.PRPF &= ~(PR_SPI_bm); /* ensure it's powered up */
-			PORTF.DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
-			PORTF.DIRCLR = (PIN6_bm); /* make inputs */
+			spi_ports[portnum]->port = &PORTF;
 			spi_ports[portnum]->hw = &SPIF; /* associate HW */
 			break;
 #endif
     }
+
+    /* configure pins */
+    spi_ports[portnum]->port->DIRSET = (PIN7_bm | PIN5_bm | PIN4_bm); /* make outputs */
+	spi_ports[portnum]->port->DIRCLR = (PIN6_bm); /* make inputs */
+	/* enable a pull-up on the MISO pin */
+	//spi_ports[portnum]->port->PIN6CTRL |= PORT_OPC_PULLUP_gc;
 
     /* enable the port and we're good to go */
     spi_ports[portnum]->hw->CTRL = (SPI_ENABLE_bm | SPI_MASTER_bm);
@@ -119,7 +123,7 @@ int spi_init(spi_portname_t portnum) {
 }
 
 /* set configuration for a given port */
-int spi_conf(spi_portname_t portnum, spi_clkdiv_t clock, spi_mode_t mode) {
+int spi_conf(spi_portname_t portnum, spi_clkdiv_t clock, spi_mode_t mode, uint8_t txdummy) {
 	if (portnum >= MAX_SPI_PORTS || !spi_ports[portnum]) {
 		return -ENODEV;
 	}
@@ -129,6 +133,8 @@ int spi_conf(spi_portname_t portnum, spi_clkdiv_t clock, spi_mode_t mode) {
 	}
 
 	/* apply the config to the port */
+	spi_ports[portnum]->txdummy = txdummy;
+
 	/* clear out bits we're touching */
 	spi_ports[portnum]->hw->CTRL &= ~(SPI_MODE_gm | SPI_PRESCALER_gm |
 									 SPI_CLK2X_bm);
@@ -165,7 +171,7 @@ int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t 
             while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
             /* NULL BODY */
             /* read the byte into the rx buffer */
-            *(rx_buf) = spi_ports[portnum]->hw->DATA;
+            *rx_buf = spi_ports[portnum]->hw->DATA;
             rx_buf++;
         }
         return 0;
@@ -187,11 +193,11 @@ int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t 
     if (rx_buf && !tx_buf) {
         /* generate zeros for TX, write to rx */
         while (len--) {
-            spi_ports[portnum]->hw->DATA = 0;
+            spi_ports[portnum]->hw->DATA = spi_ports[portnum]->txdummy;
             while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
             /* NULL BODY */
             /* read the byte into the rx buffer */
-            *(rx_buf) = spi_ports[portnum]->hw->DATA;
+            *rx_buf = spi_ports[portnum]->hw->DATA;
             rx_buf++;
         }
         return 0;
@@ -200,7 +206,7 @@ int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t 
     /* if we reach this, we have something odd like NULL/NULL */
     /* write zeros and discard, this might be used for a drain? */
     while (len--) {
-            spi_ports[portnum]->hw->DATA = 0;
+            spi_ports[portnum]->hw->DATA = spi_ports[portnum]->txdummy;
             while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
             /* we have to read this even tho we are discarding it */
             discard = spi_ports[portnum]->hw->DATA;
@@ -208,3 +214,4 @@ int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t 
 
 	return 0;
 }
+
