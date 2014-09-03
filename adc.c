@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include "errors.h"
+#include "nvm.h"
 #include "adc.h"
 
 /** \file
@@ -43,11 +44,6 @@ uint16_t adc_gnd_offset = 0; /**< ADC offset from GND */
 #define ADC_INPUT_1V 0,adc_internal,1,0
 /** \brief What ADC value we expect for 1.0V from ADC, after ground conversion */
 #define ADC_1V_EXPECTED 1638
-
-/** \brief Retrieve calibration words from production row
- *  \param offset offset into signatures
- */
-uint16_t read_cal_word(uint8_t offset);
 
 uint8_t adc_init(adc_mode_t mode, adc_vref_t vref, uint8_t bits,
 	adc_clkpre_t clkpre) {
@@ -119,7 +115,7 @@ uint8_t adc_init(adc_mode_t mode, adc_vref_t vref, uint8_t bits,
 	ADCA.PRESCALER = clkpre;
 
 	/* apply production row calibration */
-	ADCA.CAL = read_cal_word(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,ADCACAL0));
+	ADCA.CAL = nvm_adccal();
 
 #ifdef DEBUG_ADC
 	printf_P(PSTR("adc: calibration value %#x\r\n"),ADCA.CAL);
