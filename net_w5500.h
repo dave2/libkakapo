@@ -21,6 +21,10 @@
 #ifndef NET_W5500_H_INCLUDED
 #define NET_W5500_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** \file
  *  \brief W5500 driver public interface
  *
@@ -239,5 +243,9 @@ int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf);
  *  \return 0 on success, errors.h otherwise.
  */
 int w5500_udp_send(uint8_t socknum, uint8_t *ip, uint16_t port);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // NET_W5500_H_INCLUDED
