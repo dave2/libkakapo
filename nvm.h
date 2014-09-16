@@ -20,6 +20,11 @@
 
 #ifndef NVM_H_INCLUDED
 #define NVM_H_INCLUDED
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** \file
  * \brief
  * This is not a complete driver for the NVM subsystem. It provides
@@ -67,5 +72,9 @@ uint16_t nvm_tempcal(void);
  * \return Actual number of bytes read
  */
 uint16_t nvm_usersig(uint8_t *buf, uint16_t offset, uint16_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // NVM_H_INCLUDED
