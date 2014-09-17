@@ -21,6 +21,10 @@
 #ifndef WDT_H_INCLUDED
 #define WDT_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* while this does dupe bits of avr-libc, this version uses clock
  * cycle counts, as per datasheets, and not approximate wall clock
  * time. The counts here are what the datasheet states. */
@@ -71,6 +75,10 @@ int wdt_window(wdt_clk_t closed, wdt_clk_t open);
 /* This may already be defined by avr-libc, if someone included it's wdt.h */
 #ifndef wdt_reset
 #define wdt_reset() __asm__ __volatile__("wdr")
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif // WDT_H_INCLUDED

@@ -40,21 +40,21 @@ void nvm_serial(uint8_t *buf) {
     /* as per datasheet, we disable interrupts over this */
     sreg_save = SREG;
     cli();
-	NVM.CMD = NVM_CMD_READ_CALIB_ROW_gc;
-	buf[0] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM0));
-	buf[1] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM1));
-	buf[2] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM2));
-	buf[3] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM3));
-	buf[4] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM4));
-	buf[5] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM5));
-	buf[6] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,WAFNUM));
-	buf[7] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,COORDX0));
-	buf[8] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,COORDX1));
-	buf[9] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,COORDY0));
-	buf[10] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,COORDY1));
-	NVM.CMD = NVM_CMD_NO_OPERATION_gc;
-	SREG = sreg_save;
-	return;
+    NVM.CMD = NVM_CMD_READ_CALIB_ROW_gc;
+    buf[0] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM0));
+    buf[1] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM1));
+    buf[2] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM2));
+    buf[3] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM3));
+    buf[4] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM4));
+    buf[5] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,LOTNUM5));
+    buf[6] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,WAFNUM));
+    buf[7] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,COORDX0));
+    buf[8] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,COORDX1));
+    buf[9] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,COORDY0));
+    buf[10] = pgm_read_byte(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,COORDY1));
+    NVM.CMD = NVM_CMD_NO_OPERATION_gc;
+    SREG = sreg_save;
+    return;
 }
 
 /* return the ADCA cal value. On a lot of shipping silicon this is meaningless,
@@ -67,11 +67,11 @@ uint16_t nvm_adccal(void) {
     sreg_save = SREG;
     cli();
     NVM.CMD = NVM_CMD_READ_CALIB_ROW_gc;
-	n = pgm_read_word(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,ADCACAL0));
-	NVM.CMD = NVM_CMD_NO_OPERATION_gc;
-	SREG = sreg_save;
+    n = pgm_read_word(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,ADCACAL0));
+    NVM.CMD = NVM_CMD_NO_OPERATION_gc;
+    SREG = sreg_save;
 
-	return n;
+    return n;
 }
 
 /* return the temp sensor calibration value */
@@ -83,11 +83,11 @@ uint16_t nvm_tempcal(void) {
     sreg_save = SREG;
     cli();
     NVM.CMD = NVM_CMD_READ_CALIB_ROW_gc;
-	n = pgm_read_word(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,TEMPSENSE0));
-	NVM.CMD = NVM_CMD_NO_OPERATION_gc;
-	SREG = sreg_save;
+    n = pgm_read_word(PROD_SIGNATURES_START+offsetof(NVM_PROD_SIGNATURES_t,TEMPSENSE0));
+    NVM.CMD = NVM_CMD_NO_OPERATION_gc;
+    SREG = sreg_save;
 
-	return n;
+    return n;
 }
 
 /* copy n bytes from the usersig row into the buffer */
@@ -111,7 +111,7 @@ uint16_t nvm_usersig(uint8_t *buf, uint16_t offset, uint16_t len) {
         buf[n] = pgm_read_byte(n);
     }
     NVM.CMD = NVM_CMD_NO_OPERATION_gc;
-	SREG = sreg_save;
+    SREG = sreg_save;
 
     return len;
 }
