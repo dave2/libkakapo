@@ -493,7 +493,7 @@ int usart_conf(usart_portname_t portnum, uint32_t baud, uint8_t bits,
 #elif (F_CPU == 2000000)
         case 9600:
             bsel = 3205;
-            bscale = -7
+            bscale = -7;
             break;
         case 19200:
             bsel = 1539;
