@@ -11,6 +11,9 @@ RANLIB    = $(TOOLBASE)/bin/avr-ranlib
 CFLAGS    = -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct
 CFLAGS   += -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I.
 CFLAGS   += -mmcu=$(MCU)
+ifdef F_CPU
+CFLAGS	 += -DF_CPU=$(F_CPU)
+endif
 
 OBJ += adc.o ringbuffer.o spi.o timer.o usart.o twi.o clock.o rtc.o wdt.o net_w5500.o nvm.o kakapo.o
 

@@ -21,7 +21,10 @@
 #ifndef GLOBAL_H_INCLUDED
 #define GLOBAL_H_INCLUDED
 
+/* Fallback in case it's not defined */
+#ifndef F_CPU
 #define F_CPU 32000000
+#endif
 
 /* Some releases of the avr-libc header files used an incorrect name for
  * the ADC internal voltage references. This will tell adc.c to use the
