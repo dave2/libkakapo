@@ -82,6 +82,20 @@ int w5500_ip_conf(uint8_t *ip, uint8_t mask_cidr, uint8_t *gw);
  */
 int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize);
 
+/** \brief Listen for a TCP connection
+ *
+ *  The socket is configured to listen for and accept connections on the given
+ *  port. Two hooks are provided fired when the connection is accepted, and when
+ *  there has been additional packets recieved from the port
+ *
+ *  \param socknum Socket number (from zero)
+ *  \param port Port to listen on
+ *  \param accept_fn Function hook to fire on new connection accepted
+ *  \param rx_fn Function hook to fire when more data has been received
+ *  \return 0 on success, errors.h otherwise
+ */
+int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*accept_fn)(void), void (*rx_fn)(void));
+
 /** \brief Establish TCP connection
  *
  *  The socket is prepared for TCP and connection to the address/port
@@ -91,9 +105,10 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize);
  *  \param socknum Socket number (from zero)
  *  \param addr[4] IPv4 address
  *  \param port Destination port
+ *  \param rx_fn Callback function for this socket to have readable data
  *  \return 0 on success, errors.h otherwise
  */
-int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port);
+int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*rx_fn)(void));
 
 /** \brief Disconnect TCP connection
  *
@@ -119,6 +134,8 @@ int w5500_tcp_close(uint8_t socknum);
  *
  *  Note: this assumes TCP mode for the socket, which you may
  *  not have set yet.
+ *
+ *  Note: See connect and listen functions for interrupt callbacks.
  *
  *  \param socknum Socket number (from zero)
  *  \param bufsize Internal buffer size. Used to reduce overhead
@@ -171,9 +188,10 @@ int w5500_tcp_push(uint8_t socknum);
  *
  *  \param socknum Socket number to use (must have been init'd before)
  *  \param port Port on our end
+ *  \param rx_fn Callback to make when a packet is recieved
  *  \return 0 on success, errors.h otherwise
  */
-int w5500_udp_listen(uint8_t socknum, uint16_t port);
+int w5500_udp_listen(uint8_t socknum, uint16_t port, void (*rx_fn)(void));
 
 /** \brief Retrieve UDP packet metadata
  *
@@ -243,6 +261,16 @@ int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf);
  *  \return 0 on success, errors.h otherwise.
  */
 int w5500_udp_send(uint8_t socknum, uint8_t *ip, uint16_t port);
+
+/** \brief Poll for events from the W5500 chip
+ *
+ *  This will check for certain events on the chip and make the appropriate
+ *  callbacks on sockets or global chip configuration.
+ *
+ *  Generally this should be called when the HW interrupt line is asserted,
+ *  but can be polled as you see fit.
+ */
+void w5500_poll(void);
 
 #ifdef __cplusplus
 }

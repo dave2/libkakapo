@@ -274,6 +274,8 @@ typedef struct {
     uint16_t btp; /* tx pointer into buf */
     uint16_t buflen; /* the size of the buffers above */
     uint16_t read; /* bytes read from the chip buffer */
+    void (*accept_fn)(void); /* Callback on accepting a new connection */
+    void (*rx_fn)(void); /* Callback on new data in the socket */
     /* probably something else */
 } w5500_socket_t;
 
@@ -544,6 +546,10 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize) {
     /* store the block used for the socket, this is primarily in stdio land */
     _socktable[socknum].socknum = socknum;
 
+    /* reset any hooks left lying around */
+    _socktable[socknum].rx_fn = NULL;
+    _socktable[socknum].accept_fn = NULL;
+
     /* configure the socket on the chip as per definitions above */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_RXBUF_SIZE,rxsize);
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_TXBUF_SIZE,txsize);
@@ -552,11 +558,60 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize) {
     return 0;
 }
 
-int w5500_socket_listen(uint8_t socknum, uint16_t port) {
-    return -EINVAL;
+int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*accept_fn)(void), void (*rx_fn)(void)) {
+    /* sanity check */
+    if (socknum > W5500_MAX_SOCKETS) {
+        return -EINVAL;
+    }
+    /* make sure we're in the right state */
+    if (_socktable[socknum].state != S_CLOSED) {
+#ifdef DEBUG_W5500
+        printf_P(PSTR("w5500: socket not ready for listen\r\n"));
+#endif
+        return -ENOTREADY;
+    }
+
+    /* check to see the socket is actually closed at this point */
+    if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED) {
+#ifdef DEBUG_W5500
+        printf_P(PSTR("w5500: hw socket busy\r\n"));
+#endif
+        return -EBUSY;
+    }
+
+    /* set the mode to TCP */
+    _write_reg(BLK_SOCKET_REG(socknum),SOCK_MR,SOCK_MR_TCP);
+    /* set the port to listen on */
+    _write_reg16(BLK_SOCKET_REG(socknum),SOCK_PORT0,port);
+
+    /* open the socket and wait for that to be complete */
+    _write_reg(BLK_SOCKET_REG(socknum),SOCK_CR,SOCK_CR_OPEN);
+    while (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_INIT);
+    /* null body */
+
+    /* engage listen mode */
+    _write_reg(BLK_SOCKET_REG(socknum),SOCK_CR,SOCK_CR_LISTEN);
+
+    while (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_LISTEN);
+    /* null body */
+
+    /* turn on interrupts for this socket */
+    _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) | (1 << socknum));
+
+    _socktable[socknum].port = port; /* make sure we don't try to collide */
+    _socktable[socknum].read = 0; /* no bytes read yet */
+    _socktable[socknum].state = S_LISTEN; /* mark as listening */
+    _socktable[socknum].rx_fn = rx_fn; /* make sure this isn't triggered early */
+    _socktable[socknum].accept_fn = accept_fn; /* safety */
+    _socktable[socknum].btxlen = 0;
+    _socktable[socknum].brxlen = 0;
+    _socktable[socknum].btp = 0;
+    _socktable[socknum].brp = 0;
+
+    return 0;
 }
 
-int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port) {
+int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*rx_fn)(void)) {
     uint16_t sport;
 
     /* sanity check */
@@ -613,6 +668,13 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port) {
         /* all is good! return it's fine */
         _socktable[socknum].read = 0; /* no bytes read yet */
         _socktable[socknum].state = S_ESTAB;
+        /* make sure RX hook is updated */
+        _socktable[socknum].rx_fn = rx_fn;
+        _socktable[socknum].accept_fn = NULL; /* safety */
+
+        /* turn on interrupts for this socket */
+        _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) | (1 << socknum));
+
         return 0;
     }
 
@@ -648,6 +710,8 @@ int w5500_tcp_close(uint8_t socknum) {
 #ifdef DEBUG_W5500
         printf_P(PSTR("w5500: hw socket already closed\r\n"));
 #endif
+        /* disable interrupts since this is well closed now */
+        _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) & ~(1 << socknum));
         _socktable[socknum].state = S_CLOSED;
         return -EINVAL;
     }
@@ -661,8 +725,19 @@ int w5500_tcp_close(uint8_t socknum) {
     while (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED);
     /* null body */
 
+    /* turn off interrupts for this socket */
+    _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) & ~(1 << socknum));
+
     /* update our internal status */
     _socktable[socknum].state = S_CLOSED;
+
+    /* clean up buffer states */
+    _socktable[socknum].rx_fn = NULL; /* safety */
+    _socktable[socknum].accept_fn = NULL; /* safety */
+    _socktable[socknum].btxlen = 0;
+    _socktable[socknum].brxlen = 0;
+    _socktable[socknum].btp = 0;
+    _socktable[socknum].brp = 0;
 
     return 0;
 }
@@ -935,7 +1010,7 @@ FILE *w5500_tcp_map_stdio(uint8_t socknum, uint16_t bufsize) {
 	return handle;
 }
 
-int w5500_udp_listen(uint8_t socknum, uint16_t port) {
+int w5500_udp_listen(uint8_t socknum, uint16_t port, void (*rx_fn)(void)) {
     uint8_t n;
 
     /* sanity check */
@@ -980,10 +1055,15 @@ int w5500_udp_listen(uint8_t socknum, uint16_t port) {
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_CR,SOCK_CR_OPEN);
     while (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_UDP);
 
+    /* turn on interrupts for this socket */
+    _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) | (1 << socknum));
+
     _socktable[socknum].state = S_ESTAB;
     _socktable[socknum].brxlen = 0; /* these are re-used by UDP for packet len */
     _socktable[socknum].btxlen = 0;
     /* we're now good to exchange packets over UDP */
+    _socktable[socknum].rx_fn = rx_fn;
+    _socktable[socknum].accept_fn = NULL; /* safety */
 
     return 0;
 }
@@ -1010,8 +1090,14 @@ int w5500_udp_close(uint8_t socknum) {
     while (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED);
     /* null body */
 
+    /* turn off interrupts for this socket */
+    _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) & ~(1 << socknum));
+
     /* update our internal status */
     _socktable[socknum].state = S_CLOSED;
+
+    _socktable[socknum].rx_fn = NULL;
+    _socktable[socknum].accept_fn = NULL; /* safety */
 
     return 0;
 }
@@ -1222,4 +1308,50 @@ uint16_t _find_free_port(void) {
     }
     /* last_used should be unused by anything? */
     return last_used;
+}
+
+/* poll the interrupt registers, and do some useful things with them */
+void w5500_poll(void) {
+    uint8_t n, sir_stat, sock_stat;
+
+    /* retrieve the socket interrupt status register from the chip */
+    sir_stat = _read_reg(BLK_COMMON,COM_SIR);
+
+    /* socket events first */
+    for (n = 0; n < W5500_MAX_SOCKETS; n++) {
+        /* only process socket interrupts for ones we have an event for */
+        if (sir_stat & (1 << n)) {
+            /* we have a bit set, find out what event has taken place */
+            sock_stat = _read_reg(BLK_SOCKET_REG(n),SOCK_IR);
+            /* accept must be called first, so if we get a recv right on top
+             * we can still process it */
+            if (sock_stat & SOCK_IR_CON) {
+                /* update state table */
+                _socktable[n].state = S_ESTAB;
+                /* do call-back if required */
+                if (_socktable[n].accept_fn) {
+                    (*_socktable[n].accept_fn)();
+                }
+            }
+            if ((sock_stat & SOCK_IR_RECV) && _socktable[n].rx_fn) {
+                /* do the call-back */
+                (*_socktable[n].rx_fn)();
+            }
+            if (sock_stat & SOCK_IR_DISCON) {
+                /* close the socket by force */
+                w5500_tcp_close(n);
+            }
+
+            /* all other interrupts are ignore, write it back */
+            /* writing what we read avoids missing interrupts set since we
+             * read the register */
+            _write_reg(BLK_SOCKET_REG(n),SOCK_IR,sock_stat);
+        }
+    }
+    /* declare we processed all the events in this pass */
+    /* like above, we write back what we read to begin with to avoid missing
+     * interrupts that happened after */
+    _write_reg(BLK_COMMON,COM_SIR,sir_stat);
+
+    /* FIXME: handle global events */
 }
