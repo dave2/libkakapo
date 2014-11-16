@@ -1326,7 +1326,6 @@ void w5500_poll(void) {
             /* we have a bit set, find out what event has taken place */
             sock_stat = _read_reg(BLK_SOCKET_REG(n),SOCK_IR);
             _write_reg(BLK_SOCKET_REG(n),SOCK_IR,sock_stat); /* reset it */
-            printf("sock_stat=%d\r\n",sock_stat);
             /* accept must be called first, so if we get a recv right on top
              * we can still process it */
             if (sock_stat & SOCK_IR_CON) {
