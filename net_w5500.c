@@ -1316,6 +1316,8 @@ void w5500_poll(void) {
 
     /* retrieve the socket interrupt status register from the chip */
     sir_stat = _read_reg(BLK_COMMON,COM_SIR);
+    /* reset it now */
+    _write_reg(BLK_COMMON,COM_SIR,sir_stat);
 
     /* socket events first */
     for (n = 0; n < W5500_MAX_SOCKETS; n++) {
@@ -1323,6 +1325,8 @@ void w5500_poll(void) {
         if (sir_stat & (1 << n)) {
             /* we have a bit set, find out what event has taken place */
             sock_stat = _read_reg(BLK_SOCKET_REG(n),SOCK_IR);
+            _write_reg(BLK_SOCKET_REG(n),SOCK_IR,sock_stat); /* reset it */
+            printf("sock_stat=%d\r\n",sock_stat);
             /* accept must be called first, so if we get a recv right on top
              * we can still process it */
             if (sock_stat & SOCK_IR_CON) {
@@ -1348,10 +1352,5 @@ void w5500_poll(void) {
             _write_reg(BLK_SOCKET_REG(n),SOCK_IR,sock_stat);
         }
     }
-    /* declare we processed all the events in this pass */
-    /* like above, we write back what we read to begin with to avoid missing
-     * interrupts that happened after */
-    _write_reg(BLK_COMMON,COM_SIR,sir_stat);
-
     /* FIXME: handle global events */
 }
