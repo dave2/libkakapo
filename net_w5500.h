@@ -50,6 +50,13 @@ typedef enum {
     w5500_macraw, /**< Socket "protocol" is MACRAW mode */
 } w5500_sockmode_t;
 
+/** \brief Event types from sockets for callbacks */
+typedef enum {
+    w5500_accept = 0, /**< Socket has accepted a connection, TCP only */
+    w5500_rx, /**< Some data has been recieved */
+    w5500_dc, /**< Peer closed socket, TCP only */
+} w5500_event_t;
+
 /** \brief Initalise a W5500 chip
  *
  *  \param spi_port SPI port to initalise and use
@@ -86,7 +93,9 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize);
  *
  *  The socket is configured to listen for and accept connections on the given
  *  port. Two hooks are provided fired when the connection is accepted, and when
- *  there has been additional packets recieved from the port
+ *  there has been additional packets recieved from the port. They must return
+ *  void and accept a single uint8_t argument, the socket number which fired
+ *  the event.
  *
  *  \param socknum Socket number (from zero)
  *  \param port Port to listen on
@@ -94,7 +103,8 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize);
  *  \param rx_fn Function hook to fire when more data has been received
  *  \return 0 on success, errors.h otherwise
  */
-int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*accept_fn)(void), void (*rx_fn)(void));
+int w5500_tcp_listen(uint8_t socknum, uint16_t port,
+        void (*event_fn)(uint8_t,w5500_event_t));
 
 /** \brief Establish TCP connection
  *
@@ -108,7 +118,8 @@ int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*accept_fn)(void), vo
  *  \param rx_fn Callback function for this socket to have readable data
  *  \return 0 on success, errors.h otherwise
  */
-int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*rx_fn)(void));
+int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port,
+        void (*event_fn)(uint8_t,w5500_event_t));
 
 /** \brief Disconnect TCP connection
  *
@@ -191,7 +202,7 @@ int w5500_tcp_push(uint8_t socknum);
  *  \param rx_fn Callback to make when a packet is recieved
  *  \return 0 on success, errors.h otherwise
  */
-int w5500_udp_listen(uint8_t socknum, uint16_t port, void (*rx_fn)(void));
+int w5500_udp_listen(uint8_t socknum, uint16_t port, void (*event_fn)(uint8_t,w5500_event_t));
 
 /** \brief Retrieve UDP packet metadata
  *

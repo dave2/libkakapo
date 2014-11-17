@@ -274,8 +274,7 @@ typedef struct {
     uint16_t btp; /* tx pointer into buf */
     uint16_t buflen; /* the size of the buffers above */
     uint16_t read; /* bytes read from the chip buffer */
-    void (*accept_fn)(void); /* Callback on accepting a new connection */
-    void (*rx_fn)(void); /* Callback on new data in the socket */
+    void (*event_fn)(uint8_t,w5500_event_t); /* Event function to call */
     /* probably something else */
 } w5500_socket_t;
 
@@ -547,8 +546,7 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize) {
     _socktable[socknum].socknum = socknum;
 
     /* reset any hooks left lying around */
-    _socktable[socknum].rx_fn = NULL;
-    _socktable[socknum].accept_fn = NULL;
+    _socktable[socknum].event_fn = NULL;
 
     /* configure the socket on the chip as per definitions above */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_RXBUF_SIZE,rxsize);
@@ -558,7 +556,7 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize) {
     return 0;
 }
 
-int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*accept_fn)(void), void (*rx_fn)(void)) {
+int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*event_fn)(uint8_t,w5500_event_t)) {
     /* sanity check */
     if (socknum > W5500_MAX_SOCKETS) {
         return -EINVAL;
@@ -601,8 +599,7 @@ int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*accept_fn)(void), vo
     _socktable[socknum].port = port; /* make sure we don't try to collide */
     _socktable[socknum].read = 0; /* no bytes read yet */
     _socktable[socknum].state = S_LISTEN; /* mark as listening */
-    _socktable[socknum].rx_fn = rx_fn; /* make sure this isn't triggered early */
-    _socktable[socknum].accept_fn = accept_fn; /* safety */
+    _socktable[socknum].event_fn = event_fn; /* make sure this isn't triggered early */
     _socktable[socknum].btxlen = 0;
     _socktable[socknum].brxlen = 0;
     _socktable[socknum].btp = 0;
@@ -611,7 +608,7 @@ int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*accept_fn)(void), vo
     return 0;
 }
 
-int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*rx_fn)(void)) {
+int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*event_fn)(uint8_t,w5500_event_t)) {
     uint16_t sport;
 
     /* sanity check */
@@ -669,8 +666,7 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*rx_f
         _socktable[socknum].read = 0; /* no bytes read yet */
         _socktable[socknum].state = S_ESTAB;
         /* make sure RX hook is updated */
-        _socktable[socknum].rx_fn = rx_fn;
-        _socktable[socknum].accept_fn = NULL; /* safety */
+        _socktable[socknum].event_fn = event_fn;
 
         /* turn on interrupts for this socket */
         _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) | (1 << socknum));
@@ -732,8 +728,7 @@ int w5500_tcp_close(uint8_t socknum) {
     _socktable[socknum].state = S_CLOSED;
 
     /* clean up buffer states */
-    _socktable[socknum].rx_fn = NULL; /* safety */
-    _socktable[socknum].accept_fn = NULL; /* safety */
+    _socktable[socknum].event_fn = NULL; /* safety */
     _socktable[socknum].btxlen = 0;
     _socktable[socknum].brxlen = 0;
     _socktable[socknum].btp = 0;
@@ -1010,7 +1005,7 @@ FILE *w5500_tcp_map_stdio(uint8_t socknum, uint16_t bufsize) {
 	return handle;
 }
 
-int w5500_udp_listen(uint8_t socknum, uint16_t port, void (*rx_fn)(void)) {
+int w5500_udp_listen(uint8_t socknum, uint16_t port, void (*event_fn)(uint8_t,w5500_event_t)) {
     uint8_t n;
 
     /* sanity check */
@@ -1062,8 +1057,7 @@ int w5500_udp_listen(uint8_t socknum, uint16_t port, void (*rx_fn)(void)) {
     _socktable[socknum].brxlen = 0; /* these are re-used by UDP for packet len */
     _socktable[socknum].btxlen = 0;
     /* we're now good to exchange packets over UDP */
-    _socktable[socknum].rx_fn = rx_fn;
-    _socktable[socknum].accept_fn = NULL; /* safety */
+    _socktable[socknum].event_fn = event_fn;
 
     return 0;
 }
@@ -1096,8 +1090,7 @@ int w5500_udp_close(uint8_t socknum) {
     /* update our internal status */
     _socktable[socknum].state = S_CLOSED;
 
-    _socktable[socknum].rx_fn = NULL;
-    _socktable[socknum].accept_fn = NULL; /* safety */
+    _socktable[socknum].event_fn = NULL;
 
     return 0;
 }
@@ -1332,15 +1325,19 @@ void w5500_poll(void) {
                 /* update state table */
                 _socktable[n].state = S_ESTAB;
                 /* do call-back if required */
-                if (_socktable[n].accept_fn) {
-                    (*_socktable[n].accept_fn)();
+                if (_socktable[n].event_fn) {
+                    (*_socktable[n].event_fn)(n,w5500_accept);
                 }
             }
-            if ((sock_stat & SOCK_IR_RECV) && _socktable[n].rx_fn) {
+            if ((sock_stat & SOCK_IR_RECV) && _socktable[n].event_fn) {
                 /* do the call-back */
-                (*_socktable[n].rx_fn)();
+                (*_socktable[n].event_fn)(n,w5500_rx);
             }
             if (sock_stat & SOCK_IR_DISCON) {
+                /* callback happens first, then we clear the socket state */
+                if (_socktable[n].event_fn) {
+                    (*_socktable[n].event_fn)(n,w5500_dc);
+                }
                 /* close the socket by force */
                 w5500_tcp_close(n);
             }
