@@ -65,6 +65,11 @@ typedef enum {
 
 #endif
 
+typedef enum {
+    twi_stop = 0,
+    twi_nostop,
+} twi_stopmode_t;
+
 /** \brief Initalise a TWI port
  *  \param portnum Number of the port
  *  \param speed Speed of the port, in kHz
@@ -80,6 +85,16 @@ int twi_init(twi_portname_t port, uint16_t speed);
  *  \return 0 on success, errors.h otherwise
  */
 int twi_write(twi_portname_t port, uint8_t addr, void *buf, uint8_t len);
+
+/** \brief Write a byte sequence to the specified address (master), without
+ *  issuing a stop at the end.
+ *  \param portnum Number of the port
+ *  \param addr Target address
+ *  \param buf Buffer to read from
+ *  \param len Length of bytes to write
+ *  \return 0 on success, errors.h otherwise
+ */
+int twi_write_nostop(twi_portname_t port, uint8_t addr, void *buf, uint8_t len);
 
 /** \brief Read a byte sequence from the specified address (master)
  *  \param portnum Number of the port

@@ -81,8 +81,16 @@ int twi_init(twi_portname_t portnum, uint16_t speed) {
 	return 0;
 }
 
-/* write to a givern address a lump of data */
 int twi_write(twi_portname_t portnum,uint8_t addr,void *buf,uint8_t len) {
+    int ret;
+
+    ret = twi_write_nostop(portnum, addr, buf, len);
+    twi_ports[portnum]->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
+    return ret;
+}
+
+/* write to a givern address a lump of data */
+int twi_write_nostop(twi_portname_t portnum,uint8_t addr,void *buf,uint8_t len) {
 	twi_port_t *theport;
 
 	if (portnum >= MAX_TWI_PORTS || !twi_ports[portnum]) {
@@ -137,11 +145,13 @@ int twi_write(twi_portname_t portnum,uint8_t addr,void *buf,uint8_t len) {
 		}
 	}
 
-	/* and issue the stop */
-	theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
+	/* no stop condition is sent, we do this depending on which function
+	 * was called */
+
 #ifdef DEBUG_TWI
-	printf_P(PSTR(" [d]\r\n"));
+	printf_P(PSTR("\r\n"));
 #endif // DEBUG_TWI
+
 	return 0;
 }
 
