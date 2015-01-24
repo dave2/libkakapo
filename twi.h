@@ -65,11 +65,6 @@ typedef enum {
 
 #endif
 
-typedef enum {
-    twi_stop = 0,
-    twi_nostop,
-} twi_stopmode_t;
-
 /** \brief Initalise a TWI port
  *  \param portnum Number of the port
  *  \param speed Speed of the port, in kHz
