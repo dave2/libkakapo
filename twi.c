@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 David Zanetti
+/* Copyright (C) 2014-2015 David Zanetti
  *
  * This file is part of libkakapo.
  *
@@ -23,9 +23,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "global.h"
+#include <util/delay.h>
 #include "errors.h"
 #include "twi.h"
 #include "usart.h"
+
+#define DEBUG_TWI
 
 typedef struct {
 	TWI_t *hw;
@@ -75,151 +78,258 @@ int twi_init(twi_portname_t portnum, uint16_t speed) {
 
 	/* enable it */
 	twi_ports[portnum]->hw->MASTER.CTRLA |= TWI_MASTER_ENABLE_bm;
+#ifdef TWI_USE_TIMEOUT
+	twi_ports[portnum]->hw->MASTER.CTRLB |= TWI_MASTER_TIMEOUT_200US_gc;
+#endif
 	/* force into idle */
-	twi_ports[portnum]->hw->MASTER.STATUS |= TWI_MASTER_BUSSTATE_IDLE_gc;
+	twi_ports[portnum]->hw->MASTER.STATUS = TWI_MASTER_BUSSTATE_IDLE_gc;
 
 	return 0;
 }
 
-int twi_write(twi_portname_t portnum,uint8_t addr,void *buf,uint8_t len) {
-    int ret;
+int twi_write(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint8_t stop) {
+    uint8_t n = 0;
+    TWI_t *hw; /* the HW pointer */
 
-    ret = twi_write_nostop(portnum, addr, buf, len);
-    twi_ports[portnum]->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
-    return ret;
-}
-
-/* write to a givern address a lump of data */
-int twi_write_nostop(twi_portname_t portnum,uint8_t addr,void *buf,uint8_t len) {
-	twi_port_t *theport;
-
-	if (portnum >= MAX_TWI_PORTS || !twi_ports[portnum]) {
+    if (!twi_ports[portnum] || portnum >= MAX_TWI_PORTS) {
 		return -ENODEV;
 	}
-	theport = twi_ports[portnum];
 
+    hw = twi_ports[portnum]->hw;
+
+    /* keep looping around until we get the bus or attempts max reached */
+    while (n++ < 10) {
 #ifdef DEBUG_TWI
-	printf_P(PSTR("twi: -> [%x]"),addr);
-#endif // DEBUG_TWI
-
-	/* write the left-shifted address plus the write bit to hw */
-	theport->hw->MASTER.ADDR = (addr << 1);
-
-	/* poll for the completion of the address write and bus ownership */
-	while (!(theport->hw->MASTER.STATUS & TWI_MASTER_WIF_bm));
-	/* null body */
-
-	/* any error state at this point, just toss and error upwards */
-	if (theport->hw->MASTER.STATUS & (TWI_MASTER_ARBLOST_bm |
-					 				  TWI_MASTER_BUSERR_bm |
-									  TWI_MASTER_RXACK_bm)) {
-#ifdef DEBUG_TWI
-		printf_P(PSTR("twi: err %x\r\n"),theport->hw->MASTER.STATUS);
+        printf_P(PSTR("wait idle\r\n"));
 #endif
-		theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
-		return -EIO;
-	}
 
-	/* we should have the bus and be free to write data now */
-	while (len) {
+        while ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_IDLE_gc);
+
 #ifdef DEBUG_TWI
-	printf_P(PSTR(" %x"),*(uint8_t *)buf);
-#endif // DEBUG_TWI
-
-		theport->hw->MASTER.DATA = *(uint8_t *)buf;
-		buf++;
-		len--;
-		/* wait for write complete */
-		while (!(theport->hw->MASTER.STATUS & TWI_MASTER_WIF_bm));
-		/* null body */
-
-		/* check to see if we have any errors */
-		if (theport->hw->MASTER.STATUS & (TWI_MASTER_ARBLOST_bm |
-										  TWI_MASTER_BUSERR_bm |
-										  TWI_MASTER_RXACK_bm)) {
-#ifdef DEBUG_TWI
-			printf_P(PSTR("twi: err %x\r\n"),theport->hw->MASTER.STATUS);
+        printf_P(PSTR("write %02x\r\n"),addr);
 #endif
-			theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
-			return -EIO;
-		}
-	}
 
-	/* no stop condition is sent, we do this depending on which function
-	 * was called */
+        hw->MASTER.ADDR = (addr << 1);
+
+        while ((hw->MASTER.STATUS & TWI_MASTER_WIF_bm) == 0);
 
 #ifdef DEBUG_TWI
-	printf_P(PSTR("\r\n"));
-#endif // DEBUG_TWI
+        printf_P(PSTR("WIF set\r\n"));
+#endif
 
-	return 0;
+        /* at this point, we need to check what the status is */
+        if ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) == TWI_MASTER_BUSSTATE_BUSY_gc) {
+            /* we failed to acquire the bus for some reason, try again */
+#ifdef DEBUG_TWI
+            printf_P(PSTR("i2c busy, trying again\r\n"));
+#endif
+            continue;
+        }
+
+        /* we got a NAK, then fail the whole transaction */
+        if (hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) {
+#ifdef DEBUG_TWI
+            printf_P(PSTR("no device ack'd, giving up\r\n"));
+#endif
+            /* issue a stop to release the bus */
+            hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+            return -EIO;
+        }
+
+        if ((hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) == 0) {
+#ifdef DEBUG_TWI
+            printf_P(PSTR("dev ack (try %d)\r\n"),n);
+#endif
+            break;
+        }
+
+#ifdef DEBUG_TWI
+        printf_P(PSTR("protocol error, giving up\r\n"));
+#endif
+        hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+        return -EIO;
+    }
+
+    /* now we should be able to write the data */
+    while (len) {
+        /* write a byte of data to the bus, and wait for interrupt */
+#ifdef DEBUG_TWI
+        printf_P(PSTR("out: %02x"),*(uint8_t *)buf);
+#endif
+        hw->MASTER.DATA = *(uint8_t *)buf;
+
+        buf++;
+        len--;
+
+        while ((hw->MASTER.STATUS & TWI_MASTER_WIF_bm) == 0);
+
+#ifdef DEBUG_TWI
+        printf_P(PSTR("WIF set\r\n"));
+#endif
+
+        if ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) == TWI_MASTER_BUSSTATE_BUSY_gc) {
+            /* give up, something else is trashing the bus */
+#ifdef DEBUG_TWI
+            printf_P(PSTR("i2c became busy, giving up\r\n"));
+#endif // DEBUG_TWI
+            return -EIO;
+        }
+
+        if (hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) {
+            /* we got a NAK, so in either case, we stop sending stuff */
+#ifdef DEBUG_TWI
+            printf_P(PSTR("NAK recieved\r\n"));
+#endif // DEBUG_TWI
+            if (stop) {
+#ifdef DEBUG_TWI
+                printf_P(PSTR("issuing stop\r\n"));
+#endif // DEBUG_TWI
+                hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+            }
+            if (len) {
+                /* we had bytes left to send */
+                return -EIO;
+            }
+            return 0; /* we had nothing left to send anyway, so we're fine */
+        }
+
+        if ((hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) == 0) {
+            /* all good */
+#ifdef DEBUG_TWI
+            printf_P(PSTR("slaves wants more\r\n"));
+#endif // DEBUG_TWI
+            continue;
+        }
+
+#ifdef DEBUG_TWI
+        printf_P(PSTR("protocol error, giving up\r\n"));
+#endif
+        hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+        return -EIO;
+    }
+
+#ifdef DEBUG_TWI
+    printf_P(PSTR("wrote everything\r\n"));
+#endif // DEBUG_TWI
+    if (stop) {
+#ifdef DEBUG_TWI
+        printf_P(PSTR("issuing stop\r\n"));
+#endif // DEBUG_TWI
+        hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+    }
+    return 0;
 }
 
-int twi_read(twi_portname_t portnum,uint8_t addr, void *buf, uint8_t len) {
-	twi_port_t *theport;
+int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint8_t stop) {
+    uint8_t n = 0;
+    TWI_t *hw; /* the HW pointer */
 
-	if (portnum >= MAX_TWI_PORTS || !twi_ports[portnum]) {
+    if (!twi_ports[portnum] || portnum >= MAX_TWI_PORTS) {
 		return -ENODEV;
 	}
-	theport = twi_ports[portnum];
 
+    hw = twi_ports[portnum]->hw;
+
+    /* keep looping around until we get the bus or attempts max reached */
+    while (n++ < 10) {
 #ifdef DEBUG_TWI
-	printf_P(PSTR("twi: [%x] ->"),addr);
-#endif // DEBUG_TWI
-
-	/* write the left-shifted address plus the read bit to hw */
-	theport->hw->MASTER.ADDR = (addr << 1) | 0x1;
-
-	/* poll for the completion of the address write and bus ownership */
-	while (!(theport->hw->MASTER.STATUS & TWI_MASTER_RIF_bm));
-	/* null body */
-
-	/* any error state at this point, just toss and error upwards */
-	if (theport->hw->MASTER.STATUS & (TWI_MASTER_ARBLOST_bm |
-									  TWI_MASTER_BUSERR_bm |
-									  TWI_MASTER_RXACK_bm)) {
-#ifdef DEBUG_TWI
-		printf_P(PSTR("twi: err %x\r\n"),theport->hw->MASTER.STATUS);
+        printf_P(PSTR("wait idle\r\n"));
 #endif
-		theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
-		return -EIO;
-	}
 
-	/* we should have the bus and be free to write data now */
-	while (len) {
-		/* wait for RX complete */
-		while (!(theport->hw->MASTER.STATUS & TWI_MASTER_RIF_bm));
-		/* null body */
-
-		/* check to see if we have any errors */
-		if (theport->hw->MASTER.STATUS & (TWI_MASTER_ARBLOST_bm |
-										  TWI_MASTER_BUSERR_bm |
-										  TWI_MASTER_RXACK_bm)) {
+        while ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_IDLE_gc &&
+        (hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_OWNER_gc);
 #ifdef DEBUG_TWI
-			printf_P(PSTR("twi: err %x\r\n"),theport->hw->MASTER.STATUS);
+        printf_P(PSTR("read %02x\r\n"),addr);
 #endif
-			theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
-			return -EIO;
-		}
 
-		*(uint8_t *)buf = theport->hw->MASTER.DATA;
-#ifdef DEBUG_TWI
-	printf_P(PSTR(" %x"),*(uint8_t *)buf);
-#endif // DEBUG_TWI
-		buf++;
-		len--;
+        hw->MASTER.ADDR = (addr << 1) | 0x1;
 
-		/* ack/nack as required */
-		if (!len) {
-			theport->hw->MASTER.CTRLC |= TWI_MASTER_ACKACT_bm;
-		}
-		/* and execute the command */
-		theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_RECVTRANS_gc;
-	}
-	/* execute stop */
-	theport->hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
+        while ((hw->MASTER.STATUS & (TWI_MASTER_WIF_bm | TWI_MASTER_RIF_bm)) == 0);
 #ifdef DEBUG_TWI
-	printf_P(PSTR(" [d]\r\n"));
-#endif // DEBUG_TWI
-	return 0;
+        printf_P(PSTR("WIF or RIF set\r\n"));
+#endif
+
+        /* at this point, we need to check what the status is */
+        if ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) == TWI_MASTER_BUSSTATE_BUSY_gc) {
+            /* we failed to acquire the bus for some reason, try again */
+#ifdef DEBUG_TWI
+            printf_P(PSTR("i2c busy, trying again\r\n"));
+#endif
+            continue;
+        }
+
+        /* we got a NAK, then fail the whole transaction */
+        if (hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) {
+#ifdef DEBUG_TWI
+            printf_P(PSTR("no device ack'd, giving up\r\n"));
+#endif
+            /* issue a stop to release the bus */
+            hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+            return -EIO;
+        }
+
+        if ((hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) == 0 &&
+            hw->MASTER.STATUS & TWI_MASTER_RIF_bm) {
+#ifdef DEBUG_TWI
+            printf_P(PSTR("dev ack, data present (try %d)\r\n"),n);
+#endif
+            break;
+        }
+
+#ifdef DEBUG_TWI
+        printf_P(PSTR("protocol error, giving up\r\n"));
+#endif
+        hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+        return -EIO;
+    }
+
+    while (len) {
+        *(uint8_t *)buf = hw->MASTER.DATA;
+#ifdef DEBUG_TWI
+        printf_P(PSTR("rx %02x\r\n"),*(uint8_t *)buf);
+#endif
+        buf++;
+        len--;
+
+        /* we now need to decide what to do */
+        if ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) == TWI_MASTER_BUSSTATE_BUSY_gc) {
+            /* give up, something else is trashing the bus */
+#ifdef DEBUG_TWI
+            printf_P(PSTR("i2c became busy, giving up\r\n"));
+#endif
+            return -EIO;
+        }
+
+        /* if we have data to continue to RX, please provide it */
+        if (!len) {
+#ifdef DEBUG_TWI
+            printf_P(PSTR("we will term\r\n"));
+#endif
+            hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_RECVTRANS_gc;
+            break;
+        }
+
+#ifdef DEBUG_TWI
+        printf_P(PSTR("we expect more\r\n"));
+#endif
+        hw->MASTER.CTRLC = TWI_MASTER_CMD_RECVTRANS_gc;
+
+#ifdef DEBUG_TWI
+        printf_P(PSTR("waiting for next packet\r\n"));
+#endif
+        /* now wait for the next RIF or timeout */
+        while ((hw->MASTER.STATUS & TWI_MASTER_RIF_bm) == 0 &&
+            (hw->MASTER.STATUS & TWI_MASTER_WIF_bm) == 0);
+    }
+
+#ifdef DEBUG_TWI
+    printf_P(PSTR("read everything\r\n"));
+#endif
+    if (stop) {
+#ifdef DEBUG_TWI
+        printf_P(PSTR("issuing stop\r\n"));
+#endif
+        hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
+    }
+    return 0;
 }
