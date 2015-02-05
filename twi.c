@@ -28,7 +28,7 @@
 #include "twi.h"
 #include "usart.h"
 
-#define DEBUG_TWI
+#undef DEBUG_TWI
 
 typedef struct {
 	TWI_t *hw;
