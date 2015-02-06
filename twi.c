@@ -18,15 +18,6 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DEBUG_TWI
-#define DEBUG_TWI 0
-#endif
-
-#if (DEBUG_TWI > 0)
-#define KAKAPO_DEBUG_LEVEL DEBUG_TWI
-#define KAKAPO_DEBUG_CHANNEL stdout
-#endif
-
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <stdlib.h>
