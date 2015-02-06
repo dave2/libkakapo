@@ -43,9 +43,6 @@
 #include "net_w5500.h"
 #include "errors.h"
 
-#define KAKAPO_DEBUG_LEVEL 4
-#define KAKAPO_DEBUG_CHANNEL stdout
-
 #include "debug.h"
 
 /* W5500 Comms flags */
