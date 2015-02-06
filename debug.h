@@ -35,35 +35,27 @@
 #endif
 
 #if (KAKAPO_DEBUG_LEVEL > 0)
-#define k_err_P(M,...)   { fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("[err] %s:%d "),__FILE__,__LINE__); \
-                             fprintf_P(KAKAPO_DEBUG_CHANNEL, M, ##__VA_ARGS__); \
-                             fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("\r\n")); }
+#define k_err(M,...)   fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("[err] %s:%d " M "\r\n"),__FILE__,__LINE__, ##__VA_ARGS__)
 #else
-#define k_err_P(M,...)
+#define k_err(M,...)
 #endif
 
 #if (KAKAPO_DEBUG_LEVEL > 1)
-#define k_warn_P(M,...)  { fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("[warn] %s:%d "),__FILE__,__LINE__); \
-                             fprintf_P(KAKAPO_DEBUG_CHANNEL, M, ##__VA_ARGS__); \
-                             fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("\r\n")); }
+#define k_warn(M,...)   fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("[warn] %s:%d " M "\r\n"),__FILE__,__LINE__, ##__VA_ARGS__)
 #else
-#define k_warn_P(M,...)
+#define k_warn(M,...)
 #endif
 
 #if (KAKAPO_DEBUG_LEVEL > 2)
-#define k_info_P(M,...)  { fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("[info] %s:%d "),__FILE__,__LINE__); \
-                             fprintf_P(KAKAPO_DEBUG_CHANNEL, M, ##__VA_ARGS__); \
-                             fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("\r\n")); }
+#define k_info(M,...)   fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("[info] %s:%d " M "\r\n"),__FILE__,__LINE__, ##__VA_ARGS__)
 #else
-#define k_info_P(M,...)
+#define k_info(M,...)
 #endif
 
 #if (KAKAPO_DEBUG_LEVEL > 3)
-#define k_debug_P(M,...) { fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("[debug] %s:%d "),__FILE__,__LINE__); \
-                             fprintf_P(KAKAPO_DEBUG_CHANNEL, M, ##__VA_ARGS__); \
-                             fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("\r\n")); }
+#define k_debug(M,...)   fprintf_P(KAKAPO_DEBUG_CHANNEL,PSTR("[debug] %s:%d " M "\r\n"),__FILE__,__LINE__, ##__VA_ARGS__)
 #else
-#define k_debug_P(M,...)
+#define k_debug(M,...)
 #endif
 
 #endif // DEBUG_H_INCLUDED

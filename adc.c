@@ -118,7 +118,7 @@ uint8_t adc_init(adc_mode_t mode, adc_vref_t vref, uint8_t bits,
 	/* apply production row calibration */
 	ADCA.CAL = nvm_adccal();
 
-    k_debug_P(PSTR("calibration value %#x"),ADCA.CAL);
+    k_debug("calibration value %#x",ADCA.CAL);
 
 	/* now enable the module, and we're done */
 	ADCA.CTRLA |= ADC_ENABLE_bm;
@@ -130,7 +130,7 @@ uint8_t adc_init(adc_mode_t mode, adc_vref_t vref, uint8_t bits,
 	if (mode == adc_unsigned) {
 		adc_conf(ADC_INPUT_GND);
 		adc_gnd_offset = adc_conv_blocking(0,10,20);
-		k_info_P(PSTR("gnd offset %d"),adc_gnd_offset);
+		k_info("gnd offset %d",adc_gnd_offset);
 	};
 
 	return 0;
@@ -179,22 +179,22 @@ uint16_t adc_conv_blocking(uint8_t chan, uint8_t discard, uint8_t count) {
 
 	/* discard n samples */
 	if (discard) {
-        k_debug_P(PSTR("discard %d samples"),discard);
+        k_debug("discard %d samples",discard);
 		while (discard--) {
-            k_debug_P(PSTR("start ch %d"),chan);
+            k_debug("start ch %d",chan);
 			ADCA.CH0.CTRL |= ADC_CH_START_bm;
 			while (!(ADCA.CH0.INTFLAGS & ADC_CH_CHIF_bm));
 			/* null body */
-			k_debug_P(PSTR("sample complete"))
+			k_debug("sample complete");
 			ADCA.CH0.INTFLAGS = ADC_CH_CHIF_bm;
 		}
 	}
 	/* loop over collecting samples until we meet our quota for averaging */
 	while (count--) {
-            k_debug_P(PSTR("start ch %d"),chan);
+            k_debug("start ch %d",chan);
 			ADCA.CH0.CTRL |= ADC_CH_START_bm;
 			while (!(ADCA.CH0.INTFLAGS & ADC_CH_CHIF_bm));
-			k_debug_P(PSTR("sample complete"))
+			k_debug("sample complete");
 			ADCA.CH0.INTFLAGS = ADC_CH_CHIF_bm;
 			val = (val + (int16_t) ADCA.CH0.RES);
 			if (n) {
@@ -210,7 +210,7 @@ uint16_t adc_conv_blocking(uint8_t chan, uint8_t discard, uint8_t count) {
 		val -= adc_gnd_offset;
 	}
 
-    k_debug_P(PSTR("read ch %d val %d"),chan,val);
+    k_debug("read ch %d val %d",chan,val);
 
 	/* conversion is done, return the result */
 	return val;

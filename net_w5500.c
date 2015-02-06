@@ -286,7 +286,7 @@ uint8_t _read_reg(uint8_t block, uint16_t address) {
 	uint8_t buf[4], rxbuf[4];
 
 	if (!w5500_port) {
-        k_debug_P(PSTR("no such device"));
+        k_debug("no such device");
 		/* nothing much we can do */
 		return 0;
 	}
@@ -299,7 +299,7 @@ uint8_t _read_reg(uint8_t block, uint16_t address) {
 	spi_txrx(w5500_spi,buf,rxbuf,4);
 	cs_end;
 
-    k_debug_P(PSTR("[%02x]%04x->%02x"),block,address,buf[3]);
+    k_debug("[%02x]%04x->%02x",block,address,buf[3]);
 
 	return rxbuf[3];
 }
@@ -309,7 +309,7 @@ uint16_t _read_reg16(uint8_t block, uint16_t address) {
 	uint16_t value;
 
 	if (!w5500_port) {
-        k_debug_P(PSTR("no such device"));
+        k_debug("no such device");
 		/* nothing much we can do */
 		return 0;
 	}
@@ -341,7 +341,7 @@ uint16_t _read_reg16(uint8_t block, uint16_t address) {
         value = ((rxbuf[3] << 8) | rxbuf[4]);
 	}
 
-    k_debug_P(PSTR("[%02x]%04x->%04x"),block,address,value);
+    k_debug("[%02x]%04x->%04x",block,address,value);
 	return value;
 }
 
@@ -349,7 +349,7 @@ void _write_reg(uint8_t block, uint16_t address, uint8_t value) {
     uint8_t buf[4];
 
 	if (!w5500_port) {
-        k_debug_P(PSTR("no such device"));
+        k_debug("no such device");
 		return;
 	}
     buf[0] = address >> 8;
@@ -361,7 +361,7 @@ void _write_reg(uint8_t block, uint16_t address, uint8_t value) {
 	spi_txrx(w5500_spi,buf,NULL,4); /* discard what comes back */
 	cs_end;
 
-    k_debug_P(PSTR("%02x->[%02x]%04x"),value,block,address);
+    k_debug("%02x->[%02x]%04x",value,block,address);
 
 	return;
 }
@@ -370,7 +370,7 @@ void _write_reg16(uint8_t block, uint16_t address, uint16_t value) {
     uint8_t buf[5];
 
 	if (!w5500_port) {
-        k_debug_P(PSTR("no such device"));
+        k_debug("no such device");
 		return;
 	}
     buf[0] = address >> 8;
@@ -383,7 +383,7 @@ void _write_reg16(uint8_t block, uint16_t address, uint16_t value) {
 	spi_txrx(w5500_spi,buf,NULL,5); /* discard what comes back */
 	cs_end;
 
-    k_debug_P(PSTR("%02x%02x->[%02x]%04x"),value >>8, value & 0xff, block, address);
+    k_debug("%02x%02x->[%02x]%04x",value >>8, value & 0xff, block, address);
 
 	return;
 }
@@ -393,7 +393,7 @@ void _write_block(uint8_t block, uint16_t address, uint8_t len,
     uint8_t buf[3];
 
 	if (!w5500_port) {
-        k_debug_P(PSTR("no such device"));
+        k_debug("no such device");
 		return;
 	}
     buf[0] = address >> 8;
@@ -403,7 +403,7 @@ void _write_block(uint8_t block, uint16_t address, uint8_t len,
 	spi_txrx(w5500_spi,buf,NULL,3); /* issue write command */
 	spi_txrx(w5500_spi,values,NULL,len); /* and now the whole buffer */
 	cs_end;
-	k_debug_P(PSTR("%d bytes->[%02x]%04x"),len,block,address);
+	k_debug("%d bytes->[%02x]%04x",len,block,address);
 	return;
 }
 
@@ -412,7 +412,7 @@ void _read_block(uint8_t block, uint16_t address, uint8_t len,
     uint8_t buf[3];
 
 	if (!w5500_port) {
-        k_debug_P(PSTR("no such device"));
+        k_debug("no such device");
 		return;
 	}
     buf[0] = address >> 8;
@@ -422,7 +422,7 @@ void _read_block(uint8_t block, uint16_t address, uint8_t len,
 	spi_txrx(w5500_spi,buf,NULL,3); /* issue read command */
 	spi_txrx(w5500_spi,NULL,values,len); /* and now fill inbound buffer */
 	cs_end;
-	k_debug_P(PSTR("[%02x]%04x->%d bytes"),block,address,len);
+	k_debug("[%02x]%04x->%d bytes",block,address,len);
 	return;
 }
 
@@ -453,26 +453,26 @@ int w5500_init(spi_portname_t spi_port, PORT_t *cs_port, uint8_t cs_pin,
 	ver = _read_reg(BLK_COMMON,COM_VERSIONR);
 
 	if (ver != 4) {
-        k_err_P(PSTR("init failed"));
+        k_err("init failed");
 		w5500_port = NULL;
 		return -ENODEV;
 	}
 
-    k_debug_P(PSTR("checking interface"));
+    k_debug("checking interface");
 
 	/* write some junk to it, and then check to see it disappears on reset */
 	_write_block(BLK_COMMON,COM_GAR0,4,ip);
 	_read_block(BLK_COMMON,COM_GAR0,4,ip);
-	k_debug_P(PSTR("readback: %d.%d.%d.%d"),ip[0],ip[1],ip[2],ip[3]);
+	k_debug("readback: %d.%d.%d.%d",ip[0],ip[1],ip[2],ip[3]);
 	/* compare it to make sure it's been set properly */
 	if (!memcmp(ip,regtest,6)) {
 		/* we failed a clean readback for the chip */
-		k_err_P(PSTR("init failed (readback incorrect)"));
+		k_err("init failed (readback incorrect)");
 		w5500_port = NULL;
 		return -ENODEV;
 	}
 
-	k_debug_P(PSTR("software reset"));
+	k_debug("software reset");
 	/* now ensure it goes away on reset */
 	memset(regtest,0,6);
 	/* write a reset to it */
@@ -482,22 +482,22 @@ int w5500_init(spi_portname_t spi_port, PORT_t *cs_port, uint8_t cs_pin,
 
 	_read_block(BLK_COMMON,COM_GAR0,4,ip);
 
-	k_debug_P(PSTR("readback: %d.%d.%d.%d"),ip[0],ip[1],ip[2],ip[3]);
+	k_debug("readback: %d.%d.%d.%d",ip[0],ip[1],ip[2],ip[3]);
 	if (!memcmp(ip,regtest,6)) {
 		/* failed to reset the chip */
-		k_err_P(PSTR("init failed (reset readback incorrect)"));
+		k_err("init failed (reset readback incorrect)");
 		w5500_port = NULL;
 		return -ENODEV;
 	}
 
-    k_debug_P(PSTR("setting socket sizes to 2/2 kB"));
+    k_debug("setting socket sizes to 2/2 kB");
     /* set the buffer size on every socket to 2kB */
     for (i = 0; i < W5500_MAX_SOCKETS; i++) {
         _write_reg(BLK_SOCKET_REG(i),SOCK_RXBUF_SIZE,2);
         _write_reg(BLK_SOCKET_REG(i),SOCK_TXBUF_SIZE,2);
     }
 
-    k_debug_P(PSTR("setting MAC address"));
+    k_debug("setting MAC address");
 	/* write the MAC to the approprate registers */
 	_write_block(BLK_COMMON,COM_SHAR0,6,mac);
 
@@ -511,13 +511,13 @@ int w5500_ip_conf(uint8_t *ip, uint8_t cidr, uint8_t *gw) {
 
 	/* check we have the port first */
 	if (!w5500_port) {
-        k_debug_P(PSTR("no such device"));
+        k_debug("no such device");
 		return -ENODEV;
 	}
 	/* compute mask from cidr length */
 	mask = (0xffff << (32-cidr));
 
-    k_debug_P(PSTR("updating IP address to %d.%d.%d.%d/%d.%d.%d.%d"),
+    k_debug("updating IP address to %d.%d.%d.%d/%d.%d.%d.%d",
         ip[0],ip[1],ip[2],ip[3],mask >> 24, mask >> 16, mask >> 8, mask & 0xff);
 	/* write the details to the common register */
 	_write_block(BLK_COMMON,COM_SIPR0,4,ip);
@@ -530,24 +530,24 @@ int w5500_ip_conf(uint8_t *ip, uint8_t cidr, uint8_t *gw) {
 int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize) {
     /* toss invalid socket numbers */
     if (socknum > W5500_MAX_SOCKETS) {
-        k_err_P(PSTR("no such socket %d"),socknum);
+        k_err("no such socket %d",socknum);
         return -EINVAL;
     }
 
     /* now check to see the socket is not already in in use */
     if (_socktable[socknum].state != S_CLOSED &&
         _socktable[socknum].state != S_UNPREP) {
-        k_err_P(PSTR("socket %d in use, init disallowed"),socknum);
+        k_err("socket %d in use, init disallowed",socknum);
         return -EBUSY;
     }
 
     /* check to see the underlying hardware is actually closed */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED) {
-        k_err_P(PSTR("hw socket %d not closed, init disallowed"), socknum)
+        k_err("hw socket %d not closed, init disallowed", socknum);
         return -EBUSY;
     }
 
-    k_debug_P(PSTR("config socket %d, buf %d/%d kB"),rxsize,txsize);
+    k_debug("config socket %d, buf %d/%d kB",rxsize,txsize);
 
     /* mark the socket as closed, since that allows it to be used */
     _socktable[socknum].state = S_CLOSED;
@@ -569,36 +569,36 @@ int w5500_socket_init(uint8_t socknum, uint16_t rxsize, uint16_t txsize) {
 int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*event_fn)(uint8_t,w5500_event_t)) {
     /* sanity check */
     if (socknum > W5500_MAX_SOCKETS) {
-        k_err_P(PSTR("no such socket %d"),socknum);
+        k_err("no such socket %d",socknum);
         return -EINVAL;
     }
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_CLOSED) {
-        k_err_P(PSTR("socket %d not ready to listen"),socknum);
+        k_err("socket %d not ready to listen",socknum);
         return -ENOTREADY;
     }
 
     /* check to see the socket is actually closed at this point */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED) {
-        k_err_P(PSTR("hw socket %d busy"),socknum);
+        k_err("hw socket %d busy",socknum);
         return -EBUSY;
     }
 
-    k_debug_P(PSTR("config sock %d as TCP, port %d"),socknum, port);
+    k_debug("config sock %d as TCP, port %d",socknum, port);
 
     /* set the mode to TCP */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_MR,SOCK_MR_TCP);
     /* set the port to listen on */
     _write_reg16(BLK_SOCKET_REG(socknum),SOCK_PORT0,port);
 
-    k_debug_P(PSTR("opening socket %d"),socknum);
+    k_debug("opening socket %d",socknum);
 
     /* open the socket and wait for that to be complete */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_CR,SOCK_CR_OPEN);
     while (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_INIT);
     /* null body */
 
-    k_debug_P(PSTR("setting sock %d to listen"), socknum);
+    k_debug("setting sock %d to listen", socknum);
 
     /* engage listen mode */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_CR,SOCK_CR_LISTEN);
@@ -606,12 +606,12 @@ int w5500_tcp_listen(uint8_t socknum, uint16_t port, void (*event_fn)(uint8_t,w5
     while (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_LISTEN);
     /* null body */
 
-    k_debug_P(PSTR("enable irq for sock %d"),socknum);
+    k_debug("enable irq for sock %d",socknum);
 
     /* turn on interrupts for this socket */
     _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) | (1 << socknum));
 
-    k_debug_P(PSTR("update socktable for sock %d"),socknum);
+    k_debug("update socktable for sock %d",socknum);
 
     _socktable[socknum].port = port; /* make sure we don't try to collide */
     _socktable[socknum].read = 0; /* no bytes read yet */
@@ -630,22 +630,22 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*even
 
     /* sanity check */
     if (socknum > W5500_MAX_SOCKETS) {
-        k_err_P(PSTR("no such socket %d"),socknum);
+        k_err("no such socket %d",socknum);
         return -EINVAL;
     }
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_CLOSED) {
-        k_err_P(PSTR("socket %d is not ready for connect"),socknum);
+        k_err("socket %d is not ready for connect",socknum);
         return -ENOTREADY;
     }
 
     /* check to see the socket is actually closed at this point */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED) {
-        k_err_P(PSTR("hw socket %d is busy"),socknum);
+        k_err("hw socket %d is busy",socknum);
         return -EBUSY;
     }
 
-    k_debug_P(PSTR("config sock %d as TCP"),socknum);
+    k_debug("config sock %d as TCP",socknum);
 
     /* set the mode to TCP */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_MR,SOCK_MR_TCP);
@@ -654,28 +654,28 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*even
     sport = _find_free_port();
     _socktable[socknum].port = sport;
 
-    k_debug_P(PSTR("found free port %d"),sport);
+    k_debug("found free port %d",sport);
 
     _write_reg16(BLK_SOCKET_REG(socknum),SOCK_PORT0,sport);
 
-    k_debug_P(PSTR("opening socket %d"),socknum);
+    k_debug("opening socket %d",socknum);
 
     /* open the socket and wait for that to be complete */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_CR,SOCK_CR_OPEN);
     while (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_INIT);
     /* null body */
 
-    k_debug_P(PSTR("setting destination %d.%d.%d.%d:%d"), addr[0],addr[1],addr[2],addr[3],port);
+    k_debug("setting destination %d.%d.%d.%d:%d", addr[0],addr[1],addr[2],addr[3],port);
 
     /* set the target addresses and port */
     _write_block(BLK_SOCKET_REG(socknum),SOCK_DIPR0,4,addr);
     _write_reg16(BLK_SOCKET_REG(socknum),SOCK_DPORT0,port);
 
-    k_debug_P(PSTR("clearing interrupts for socket %d"),socknum);
+    k_debug("clearing interrupts for socket %d",socknum);
 
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_IR,0xff); /* clear all interrupts */
 
-    k_debug_P(PSTR("opening connection"));
+    k_debug("opening connection");
 
     /* now issue the connect */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_CR,SOCK_CR_CONNECT);
@@ -684,7 +684,7 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*even
     while (!(_read_reg(BLK_SOCKET_REG(socknum),SOCK_IR) & (SOCK_IR_CON | SOCK_IR_TIMEOUT)));
     /* null body */
 
-    k_debug_P(PSTR("connection attempt completed"));
+    k_debug("connection attempt completed");
 
     /* clear the flags since we will just check it via the SOCK_SR register */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_IR,(SOCK_IR_CON | SOCK_IR_TIMEOUT));
@@ -692,14 +692,14 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*even
     /* either we got a timeout or we got an established connection */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) == SOCK_SR_ESTABLISHED) {
 
-        k_info_P(PSTR("connection established to %d.%d.%d.%d:%d"),addr[0],addr[1],addr[2],addr[3],port);
+        k_info("connection established to %d.%d.%d.%d:%d",addr[0],addr[1],addr[2],addr[3],port);
         /* all is good! return it's fine */
         _socktable[socknum].read = 0; /* no bytes read yet */
         _socktable[socknum].state = S_ESTAB;
         /* make sure RX hook is updated */
         _socktable[socknum].event_fn = event_fn;
 
-        k_debug_P(PSTR("enabling irq for socket %d"),socknum);
+        k_debug("enabling irq for socket %d",socknum);
 
         /* turn on interrupts for this socket */
         _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) | (1 << socknum));
@@ -711,13 +711,13 @@ int w5500_tcp_connect(uint8_t socknum, uint8_t *addr, uint16_t port, void (*even
 
     /* figure out if we got a destination unreachable or not */
     if (_read_reg(BLK_COMMON,COM_IR) && COM_IR_UNREACH) {
-        k_err_P(PSTR("connection failed (unreach)"));
+        k_err("connection failed (unreach)");
         _write_reg(BLK_COMMON,COM_IR,COM_IR_UNREACH);
         return -EHOSTUNREACH;
     }
 
     /* we don't know, it just didn't work */
-    k_err_P(PSTR("connection failed"));
+    k_err("connection failed");
     return -ETIME;
 
 }
@@ -727,20 +727,20 @@ int w5500_tcp_close(uint8_t socknum) {
 
     /* sanity check */
     if (socknum > W5500_MAX_SOCKETS) {
-        k_err_P(PSTR("no such socket %d"),socknum);
+        k_err("no such socket %d",socknum);
         return -EINVAL;
     }
 
     /* check to see we're not actually working on a closed socket already */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) == SOCK_SR_CLOSED) {
-        k_warn_P(PSTR("hw socket %d already closed"),socknum);
+        k_warn("hw socket %d already closed",socknum);
         /* disable interrupts since this is well closed now */
         _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) & ~(1 << socknum));
         _socktable[socknum].state = S_CLOSED;
         return -EINVAL;
     }
 
-    k_debug_P(PSTR("closing socket %d"),socknum);
+    k_debug("closing socket %d",socknum);
 
     /* clear interrupts */
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_IR,0xff);
@@ -751,7 +751,7 @@ int w5500_tcp_close(uint8_t socknum) {
     while (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED);
     /* null body */
 
-    k_debug_P(PSTR("close complete"));
+    k_debug("close complete");
 
     /* turn off interrupts for this socket */
     _write_reg(BLK_COMMON,COM_SIMR,_read_reg(BLK_COMMON,COM_SIMR) & ~(1 << socknum));
@@ -794,7 +794,7 @@ int _sock_tcp_put(char s, FILE *handle) {
     /* check to see if the socket has been closed on us */
     if (_read_reg(BLK_SOCKET_REG(sock->socknum),SOCK_SR) != SOCK_SR_ESTABLISHED) {
         /* close it */
-        k_err_P(PSTR("lost connection on socket %d"),sock->socknum);
+        k_err("lost connection on socket %d",sock->socknum);
         w5500_tcp_close(sock->socknum);
         return _FDEV_ERR;
     }
@@ -807,7 +807,7 @@ int _sock_tcp_put(char s, FILE *handle) {
         /* work out if we can clear some space */
         if (chip_txfree < sock->buflen) {
             /* nope, so oh well, you can't write at the moment */
-            k_warn_P(PSTR("tx buffer overrun on socket %d"),sock->socknum);
+            k_warn("tx buffer overrun on socket %d",sock->socknum);
             return _FDEV_ERR;
         }
         /* send the bulk data, and increment the write pointer to match */
@@ -873,7 +873,7 @@ int w5500_tcp_push(uint8_t socknum) {
 
     /* check to see we're not trying to push a closed socket */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_ESTABLISHED) {
-        k_err_P(PSTR("lost connection on socket %d"),socknum);
+        k_err("lost connection on socket %d",socknum);
         w5500_tcp_close(0);
         return -EIO;
     }
@@ -899,7 +899,7 @@ int w5500_tcp_push(uint8_t socknum) {
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_IR,SOCK_IR_SENDOK | SOCK_IR_DISCON | SOCK_IR_TIMEOUT);
     /* work out why we exited */
     if (stat & SOCK_IR_DISCON || stat & SOCK_IR_TIMEOUT) {
-        k_err_P(PSTR("lost connection on socket %d"),socknum);
+        k_err("lost connection on socket %d",socknum);
         w5500_tcp_close(0);
         return -EIO;
     }
@@ -938,7 +938,7 @@ int _sock_tcp_get(FILE *handle) {
             break;
         default:
             /* close it */
-            k_warn_P(PSTR("read from closed socket %d"),sock->socknum);
+            k_warn("read from closed socket %d",sock->socknum);
             w5500_tcp_close(sock->socknum);
             return _FDEV_ERR;
             break;
@@ -1038,7 +1038,7 @@ int w5500_udp_listen(uint8_t socknum, uint16_t port, void (*event_fn)(uint8_t,w5
     }
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_CLOSED) {
-        k_err_P(PSTR("socket %d not ready for connect"),socknum);
+        k_err("socket %d not ready for connect",socknum);
         return -ENOTREADY;
     }
 
@@ -1046,14 +1046,14 @@ int w5500_udp_listen(uint8_t socknum, uint16_t port, void (*event_fn)(uint8_t,w5
     for (n = 0; n < W5500_MAX_SOCKETS; n++) {
         if (_socktable[n].port == port) {
             /* fail! */
-            k_err_P(PSTR("port %d in use already"),port);
+            k_err("port %d in use already",port);
             return -EBUSY;
         }
     }
 
     /* check to see the socket is actually closed at this point */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_CLOSED) {
-        k_err_P(PSTR("hw socket %d busy"),socknum);
+        k_err("hw socket %d busy",socknum);
         return -EBUSY;
     }
 
@@ -1088,7 +1088,7 @@ int w5500_udp_close(uint8_t socknum) {
 
     /* check to see we're not actually working on a closed socket already */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_UDP) {
-        k_err_P(PSTR("hw socket %d is not in UDP mode"),socknum);
+        k_err("hw socket %d is not in UDP mode",socknum);
         /* don't touch the socket */
         return -EINVAL;
     }
@@ -1158,14 +1158,14 @@ int w5500_udp_read(uint8_t socknum, uint16_t len, uint8_t *buf) {
 
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_ESTAB) {
-        k_warn_P(PSTR("read from closed socket %d"),socknum);
+        k_warn("read from closed socket %d",socknum);
         return -EIO;
     }
 
     /* check to see if the socket has been closed on us */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_UDP) {
         /* toss error */
-        k_warn_P(PSTR("read from closed hw socket %d"),socknum);
+        k_warn("read from closed hw socket %d",socknum);
         return -EIO;
     }
 
@@ -1203,20 +1203,20 @@ int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf) {
 
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_ESTAB) {
-        k_warn_P(PSTR("write to closed socket %d"),socknum);
+        k_warn("write to closed socket %d",socknum);
         return -EIO;
     }
 
     /* check to see if the socket has been closed on us */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_UDP) {
         /* toss error */
-        k_warn_P(PSTR("write to closed hw socket %d"),socknum);
+        k_warn("write to closed hw socket %d",socknum);
         return -EIO;
     }
 
     /* check to see if we have space to write this anyway */
     if (_read_reg16(BLK_SOCKET_REG(socknum),SOCK_TX_FSR0)-_socktable[socknum].btxlen < len) {
-        k_warn_P(PSTR("tx buffer overflow on socket %d"),socknum);
+        k_warn("tx buffer overflow on socket %d",socknum);
         /* no space for you! */
         return -EIO;
     }
@@ -1243,14 +1243,14 @@ int w5500_udp_send(uint8_t socknum, uint8_t *ip, uint16_t port) {
 
     /* make sure we're in the right state */
     if (_socktable[socknum].state != S_ESTAB) {
-        k_err_P(PSTR("socket %d not ready for send"),socknum)
+        k_err("socket %d not ready for send",socknum);
         return -EIO;
     }
 
     /* check to see if the socket has been closed on us */
     if (_read_reg(BLK_SOCKET_REG(socknum),SOCK_SR) != SOCK_SR_UDP) {
         /* toss error */
-        k_warn_P(PSTR("write to closed hw socket %d"),socknum);
+        k_warn("write to closed hw socket %d",socknum);
         return -EIO;
     }
     /* set dest details */
@@ -1267,7 +1267,7 @@ int w5500_udp_send(uint8_t socknum, uint8_t *ip, uint16_t port) {
     _write_reg(BLK_SOCKET_REG(socknum),SOCK_IR,SOCK_IR_SENDOK | SOCK_IR_TIMEOUT);
     /* work out why we exited */
     if (stat & SOCK_IR_TIMEOUT) {
-        k_warn_P(PSTR("udp timeout sending on socket %d"),socknum);
+        k_warn("udp timeout sending on socket %d",socknum);
         /* we don't close it, we just allow you to make that decision yourself */
         return -EIO;
     }

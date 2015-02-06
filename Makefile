@@ -11,6 +11,9 @@ RANLIB    = $(TOOLBASE)/bin/avr-ranlib
 CFLAGS    = -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct
 CFLAGS   += -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I.
 CFLAGS   += -mmcu=$(MCU)
+ifdef DEBUG
+CFLAGS   += -g -DKAKAPO_DEBUG_LEVEL=$(DEBUG) -DKAKAPO_DEBUG_CHANNEL=stdout
+endif
 ifdef F_CPU
 CFLAGS	 += -DF_CPU=$(F_CPU)
 endif
