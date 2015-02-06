@@ -18,6 +18,10 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
+/* these functions do not contain debugging output, as they are usually called
+ * before any USART functions are set up and running, and USARTs depend
+ * on these setting being applied. */
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "global.h"
