@@ -260,8 +260,12 @@ int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_s
         /* if we have data to continue to RX, please provide it */
         if (!len) {
             k_debug("read complete, sending nak");
-            hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_RECVTRANS_gc;
-            break;
+            if (stop) {
+              hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_STOP_gc;
+            } else {
+              hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_RECVTRANS_gc;
+            }
+            return 0;
         }
 
         k_debug("expecting more bytes, sending ack");
@@ -274,9 +278,6 @@ int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_s
         /* null body */
     }
 
-    if (stop) {
-        k_debug("issuing stop");
-        hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
-    }
-    return 0;
+    k_err("protocol problem, yuck");
+    return -EIO;
 }
