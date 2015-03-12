@@ -87,7 +87,7 @@ int twi_init(twi_portname_t portnum, uint16_t speed) {
 	return 0;
 }
 
-int twi_write(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint8_t stop) {
+int twi_write(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_stopmode_t stop) {
     uint8_t n = 0;
     TWI_t *hw; /* the HW pointer */
 
@@ -191,7 +191,7 @@ int twi_write(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint
     return 0;
 }
 
-int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint8_t stop) {
+int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_stopmode_t stop) {
     uint8_t n = 0;
     TWI_t *hw; /* the HW pointer */
 
@@ -260,8 +260,12 @@ int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint8
         /* if we have data to continue to RX, please provide it */
         if (!len) {
             k_debug("read complete, sending nak");
-            hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_RECVTRANS_gc;
-            break;
+            if (stop) {
+              hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_STOP_gc;
+            } else {
+              hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_RECVTRANS_gc;
+            }
+            return 0;
         }
 
         k_debug("expecting more bytes, sending ack");
@@ -274,9 +278,6 @@ int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint8
         /* null body */
     }
 
-    if (stop) {
-        k_debug("issuing stop");
-        hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
-    }
-    return 0;
+    k_err("protocol problem, yuck");
+    return -EIO;
 }
