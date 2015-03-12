@@ -87,7 +87,7 @@ int twi_init(twi_portname_t portnum, uint16_t speed) {
 	return 0;
 }
 
-int twi_write(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint8_t stop) {
+int twi_write(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_stopmode_t stop) {
     uint8_t n = 0;
     TWI_t *hw; /* the HW pointer */
 
@@ -191,7 +191,7 @@ int twi_write(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint
     return 0;
 }
 
-int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint8_t stop) {
+int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_stopmode_t stop) {
     uint8_t n = 0;
     TWI_t *hw; /* the HW pointer */
 
@@ -276,7 +276,7 @@ int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, uint8
 
     if (stop) {
         k_debug("issuing stop");
-        hw->MASTER.CTRLC |= TWI_MASTER_CMD_STOP_gc;
+        hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
     }
     return 0;
 }

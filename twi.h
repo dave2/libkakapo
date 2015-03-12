@@ -66,8 +66,8 @@ typedef enum {
 #endif
 
 typedef enum {
-    twi_stop = 0,
-    twi_nostop,
+    twi_nostop = 0,
+    twi_stop,
 } twi_stopmode_t;
 
 /** \brief Initalise a TWI port
@@ -85,7 +85,7 @@ int twi_init(twi_portname_t port, uint16_t speed);
  *  \param stop Whether to end transaction or not
  *  \return 0 on success, errors.h otherwise
  */
-int twi_write(twi_portname_t port, uint8_t addr, void *buf, uint8_t len, uint8_t stop);
+int twi_write(twi_portname_t port, uint8_t addr, void *buf, uint8_t len, twi_stopmode_t stop);
 
 /** \brief Read a byte sequence from the specified address (master)
  *  \param portnum Number of the port
@@ -95,7 +95,7 @@ int twi_write(twi_portname_t port, uint8_t addr, void *buf, uint8_t len, uint8_t
  *  \param stop Whether to end transaction or not
  *  \return 0 on success, errors.h otherwise
  */
-int twi_read(twi_portname_t port, uint8_t addr, void *buf, uint8_t len, uint8_t stop);
+int twi_read(twi_portname_t port, uint8_t addr, void *buf, uint8_t len, twi_stopmode_t stop);
 
 #ifdef __cplusplus
 }
