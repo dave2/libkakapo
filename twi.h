@@ -92,7 +92,7 @@ int twi_init(twi_portname_t port, uint16_t speed);
  *  \param rev  pointer to where 3-bit rev & 0x80 will be written.
  *  \return 0 on device found, errors.h otherwise
  */
-uint16_t twi_probe(twi_portname_t port, uint8_t addr, uint16_t *manu,
+int twi_probe(twi_portname_t port, uint8_t addr, uint16_t *manu,
                 uint16_t *part, uint8_t *rev);
 
 /** \brief Write a byte sequence to the specified address (master)

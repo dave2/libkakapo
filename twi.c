@@ -92,10 +92,12 @@ int twi_probe(twi_portname_t port, uint8_t addr, uint16_t *manu,
     uint8_t n = 0; /* attempt counter */
     TWI_t *hw; /* pointer to the real hardware */
 
-    if (!twi_ports[portnum] || portnum >= MAX_TWI_PORTS) {
-        k_err("no such port %d",portnum);
+    if (!twi_ports[port] || port >= MAX_TWI_PORTS) {
+        k_err("no such port %d",port);
 		return -ENODEV;
 	}
+
+    hw = twi_ports[port]->hw;
 
     /* keep looping around until we get the bus or attempts max reached */
     while (n++ < 10) {
@@ -297,6 +299,8 @@ int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_s
         return -EIO;
     }
 
+    /* read the data as it comes in */
+    /* note: first byte is already ready when we enter this */
     while (len) {
         *(uint8_t *)buf = hw->MASTER.DATA;
         k_debug("rx %02x",*(uint8_t *)buf);
@@ -310,17 +314,20 @@ int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_s
             return -EIO;
         }
 
-        /* if we have data to continue to RX, please provide it */
+        /* nothing more we are expecting? close out the exchange */
         if (!len) {
-            k_debug("read complete, sending nak");
+            /* if we're stopping then issue one command to NAK+stop, otherwise just NAK */
             if (stop) {
-              hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_STOP_gc;
+                k_debug("read complete, sending nak and stop");
+                hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_STOP_gc;
             } else {
-              hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_RECVTRANS_gc;
+                k_debug("read complete, sending nak");
+                hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_RECVTRANS_gc;
             }
-            return 0;
+            break;
         }
 
+        /* if we have data to continue to RX, signal slave to provide it */
         k_debug("expecting more bytes, sending ack");
         hw->MASTER.CTRLC = TWI_MASTER_CMD_RECVTRANS_gc;
 
@@ -331,6 +338,6 @@ int twi_read(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_s
         /* null body */
     }
 
-    k_err("protocol problem, yuck");
-    return -EIO;
+    /* all done */
+    return 0;
 }
