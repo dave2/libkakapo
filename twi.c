@@ -87,6 +87,59 @@ int twi_init(twi_portname_t portnum, uint16_t speed) {
 	return 0;
 }
 
+int twi_probe(twi_portname_t port, uint8_t addr, uint16_t *manu,
+                uint16_t *part, uint8_t *rev) {
+    uint8_t n = 0; /* attempt counter */
+    TWI_t *hw; /* pointer to the real hardware */
+
+    if (!twi_ports[portnum] || portnum >= MAX_TWI_PORTS) {
+        k_err("no such port %d",portnum);
+		return -ENODEV;
+	}
+
+    /* keep looping around until we get the bus or attempts max reached */
+    while (n++ < 10) {
+        k_debug("waiting for bus idle");
+        while ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_IDLE_gc);
+        /* null body */
+
+        k_debug("write to %02x",addr);
+        hw->MASTER.ADDR = (addr << 1);
+
+        while ((hw->MASTER.STATUS & TWI_MASTER_WIF_bm) == 0);
+        /* null body */
+
+        k_debug("wif set");
+
+        /* at this point, we need to check what the status is */
+        if ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) == TWI_MASTER_BUSSTATE_BUSY_gc) {
+            /* we failed to acquire the bus for some reason, try again */
+            k_info("bus busy, trying again");
+            continue;
+        }
+
+        /* we got a NAK, then fail the whole transaction */
+        if (hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) {
+            /* this is only an info message, since we are probing */
+            k_info("no device responded at %02x, giving up",addr);
+            /* issue a stop to release the bus */
+            hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+            return -ENODEV;
+        }
+
+        if ((hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) == 0) {
+            k_debug("device %02x responded (try %02x)",addr,n);
+            break;
+        }
+
+        k_err("protocol error, giving up");
+        hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
+        return -EIO;
+    }
+
+    return 0;
+}
+
 int twi_write(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_stopmode_t stop) {
     uint8_t n = 0;
     TWI_t *hw; /* the HW pointer */

@@ -77,6 +77,24 @@ typedef enum {
  */
 int twi_init(twi_portname_t port, uint16_t speed);
 
+/** \brief probe whether there is a device at the given address
+ *
+ *  This will only return if a device responded to a hail on the
+ *  given address. It will automatically perform a reserved device
+ *  ID call, and write the values returned should it succeed.
+ *  An additional bit is (bit 7 of rev) provided containing whether
+ *  the data is valid or not. Any of these may be null for simple hail.
+ *
+ *  \param port TWI port to use
+ *  \param addr address (7 bits without read/write bit)
+ *  \param manu pointer to where 12-bit manufacturer will be written
+ *  \param part pointer to where 9-bit part will be written
+ *  \param rev  pointer to where 3-bit rev & 0x80 will be written.
+ *  \return 0 on device found, errors.h otherwise
+ */
+uint16_t twi_probe(twi_portname_t port, uint8_t addr, uint16_t *manu,
+                uint16_t *part, uint8_t *rev);
+
 /** \brief Write a byte sequence to the specified address (master)
  *  \param portnum Number of the port
  *  \param addr Target address
