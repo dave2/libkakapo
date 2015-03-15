@@ -18,7 +18,7 @@ ifdef F_CPU
 CFLAGS	 += -DF_CPU=$(F_CPU)
 endif
 
-OBJ += adc.o ringbuffer.o spi.o timer.o usart.o twi.o clock.o rtc.o wdt.o net_w5500.o nvm.o kakapo.o
+OBJ += adc.o ringbuffer.o spi.o timer.o usart.o twi.o clock.o rtc.o wdt.o net_w5500.o nvm.o sched_simple.o kakapo.o
 
 libkakapo.a : $(OBJ) Makefile
 	$(AR) cr libkakapo.a $(OBJ)
