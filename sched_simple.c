@@ -127,10 +127,10 @@ task_t *sched_create(void (*fn)(task_t *task)) {
 
 void sched_run(task_t *task, sched_prio_t prio) {
 
-    /* this all has to be done without interupts breaking our pointers */
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        switch (prio) {
-            case sched_later:
+    switch (prio) {
+        case sched_later:
+            /* adjusting queue pointers, leave us alone! */
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 /* if we are the current head, then we want to run again later */
                 if (_head == task) {
                     /* set up some glue to make this work */
@@ -146,8 +146,11 @@ void sched_run(task_t *task, sched_prio_t prio) {
                 }
                 task->prev = _tail; /* previous from us is current tail */
                 _tail = task; /* we are now tail */
-                break;
-            case sched_now:
+            }
+            break;
+        case sched_now:
+            /* adjusting queue pointers, leave us alone! */
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 /* make glue point to us */
                 glue.next = task;
 
@@ -164,9 +167,10 @@ void sched_run(task_t *task, sched_prio_t prio) {
                 task->prev = NULL;
                 /* make glue head, which makes us head on next pass */
                 _head = &glue;
-            default:
-                break; /* nothing much we can do */
-        }
+            }
+            break;
+        default:
+            break; /* nothing much we can do */
     }
 
     return;
