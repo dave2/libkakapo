@@ -150,9 +150,14 @@ void sched_run(task_t *task, sched_prio_t prio) {
             case sched_now:
                 /* make glue point to us */
                 glue.next = task;
+
                 /* if we weren't the head, then make our next point to head */
                 /* if we are the head, then our existing next is acceptable */
                 if (_head != task) {
+                    /* pull us out of the queue if we had a previous */
+                    if (task->prev) {
+                        task->prev->next = task->next;
+                    }
                     task->next = _head;
                 }
                 /* we have no previous task */
