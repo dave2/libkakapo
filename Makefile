@@ -8,7 +8,7 @@ MCU       ?= atxmega64d4
 CC        = $(TOOLBASE)/bin/avr-gcc
 AR        = $(TOOLBASE)/bin/avr-ar
 RANLIB    = $(TOOLBASE)/bin/avr-ranlib
-CFLAGS    = -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct
+CFLAGS    = $(FLAGS) -Os --std=c99 -funroll-loops -funsigned-char -funsigned-bitfields -fpack-struct
 CFLAGS   += -fshort-enums -Wstrict-prototypes -Wall -mcall-prologues -I.
 CFLAGS   += -mmcu=$(MCU)
 ifdef DEBUG
@@ -28,5 +28,5 @@ libkakapo.a : $(OBJ) Makefile
 	$(CC) -c $(CFLAGS) $< -o $@
 
 clean :
-	rm -f $(OBJ) libkakapo.a
+	rm -f $(OBJ) *.i *.s libkakapo.a
 
