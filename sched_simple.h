@@ -48,8 +48,8 @@
 
 /** \brief Process table structure */
 typedef struct task_struct {
-    struct task_struct *next; /**< Next task in linked list */
-    struct task_struct *prev; /**< Previous task in linked list */
+    volatile struct task_struct *next; /**< Next task in linked list */
+    volatile struct task_struct *prev; /**< Previous task in linked list */
     void (*fn)(struct task_struct *); /**< Pointer to the actual task entry point */
     void *data; /**< Task's own private data */
 } task_t;

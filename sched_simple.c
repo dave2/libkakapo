@@ -4,7 +4,7 @@
  *
  * libkakapo is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, version 2 of the
+ * published by the Free Software Foundation, version 3 of the
  * License.
  *
  * libkakapo is distributed in the hope that it will be useful,
@@ -45,6 +45,9 @@
 /* We use linked lists since that allows O(1) task selection, rather than
  * based on the size of the process table to find another task */
 
+ /* Note: there are several important casts to task_t *. These are to flag
+  * where we understand we're discarding volatile as an attribute. */
+
 #include <avr/io.h>
 #include "global.h"
 #include <stdio.h>
@@ -54,6 +57,7 @@
 #include <util/atomic.h>
 #include "sched_simple.h"
 #include "errors.h"
+#include "debug.h"
 
 /**< Maximum number of execute slots supported */
 #define SCHED_SIMPLE_MAXPROC 16
@@ -61,42 +65,54 @@
 /**< the fixed process table */
 task_t _proc[SCHED_SIMPLE_MAXPROC];
 /**< head and tail pointers for the linked list */
-task_t *_head;
-task_t *_tail;
+volatile task_t *_head;
+volatile task_t *_tail;
 /**< glue is used to provide next pointer when current task is pushed to tail */
-task_t glue;
+volatile task_t glue;
 
 void sched_simple_init(void) {
     /* reset pointers for task selection */
     _head = NULL;
     _tail = NULL;
     /* reset the whole process table */
-    memset(&_proc,0,sizeof(task_t)*SCHED_SIMPLE_MAXPROC);
-    /* and glue task */
-    memset(&glue,0,sizeof(task_t));
+    /* we re-cast _proc here since we're in init */
+    memset((task_t *)&_proc,0,sizeof(task_t)*SCHED_SIMPLE_MAXPROC);
+    /* and glue task, also re-cast since we're in init */
+    memset((task_t *)&glue,0,sizeof(task_t));
     return;
 }
 
 void sched_simple(void) {
-    /* while _head is not NULL, execute that task, then work out next task */
-    while (_head) {
-        /* sanity check */
-        if (_head->fn) {
-            (_head->fn)(_head); /* Execute the task */
-            /* select a new task */
-            /* Must be executed without interrupts going off, since we are
-             * doing a 16-bit copy here */
-            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                /* change the head pointer to this task's next */
-                /* this may have been changed by the previous task */
-                _head = _head->next;
-                if (_head) {
-                    _head->prev = NULL; /* we are head */
-                } else {
-                    _tail = NULL; /* make sure tail is reset when we run out */
-                }
+    task_t *cache = NULL;
+
+    while (1) {
+
+        /* select a new task */
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            /* nothing to execute, break out and return to main loop */
+            if (!_head) {
+                _tail = NULL;
+                break;
+            }
+            /* if we have nothing cached, must be first pass */
+            if (!cache) {
+                /* just make us execute off the head */
+                cache = (task_t *)_head;
+            } else {
+                /* we did have a task already executed, established next task */
+                _head = (task_t *)_head->next;
+                k_debug("_head=%x",_head);
+                _head->prev = NULL;
+                cache = (task_t *)_head;
             }
         }
+
+        /* sanity check */
+        if (cache->fn) {
+            k_debug("jmp %x",cache);
+            (cache->fn)(cache); /* Execute the task */
+        }
+
     }
     /* nothing left to run */
     return;
@@ -118,6 +134,7 @@ task_t *sched_create(void (*fn)(task_t *task)) {
             _proc[n].next = NULL; /* has no run queue pointers */
             _proc[n].prev = NULL;
             /* return the structure */
+            k_debug("create task as pid %d at %x",n,&(_proc[n]));
             return &(_proc[n]);
         }
     }
@@ -133,18 +150,26 @@ void sched_run(task_t *task, sched_prio_t prio) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 /* if we are the current head, then we want to run again later */
                 if (_head == task) {
+                    k_debug("shift head %x to tail, using glue",task);
                     /* set up some glue to make this work */
                     glue.next = task->next;
                     /* point the head to the glue, containing original next task */
-                    _head = &glue;
+                    _head = (task_t *)&glue;
                 }
+                k_debug("append %x at tail",task);
                 /* okay, make us the tail of the run queue */
                 task->next = NULL; /* make sure we're the end */
                 /* if we have no tail, we can't very well set it's next */
                 if (_tail) {
+                    k_debug("(tail)%x->next=%x",_tail,task);
                     _tail->next = task; /* current tail's next is us */
                 }
-                task->prev = _tail; /* previous from us is current tail */
+                /* if we have no head, then we are probably next task to execute */
+                if (!_head) {
+                    _head = task;
+                }
+                k_debug("%x->prev=%x",task,_tail);
+                task->prev = (task_t *)_tail; /* previous from us is current tail */
                 _tail = task; /* we are now tail */
             }
             break;
@@ -161,12 +186,12 @@ void sched_run(task_t *task, sched_prio_t prio) {
                     if (task->prev) {
                         task->prev->next = task->next;
                     }
-                    task->next = _head;
+                    task->next = (task_t *)_head;
                 }
                 /* we have no previous task */
                 task->prev = NULL;
                 /* make glue head, which makes us head on next pass */
-                _head = &glue;
+                _head = (task_t *)&glue;
             }
             break;
         default:
