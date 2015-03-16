@@ -43,6 +43,11 @@ int main(void) {
 
     sei();
 
+    /* set up our tasks BEFORE we have any interrupts doing things */
+    sched_simple_init();
+    led_task = sched_create(&task_b);
+    usart_task = sched_create(&task_a);
+
     // configure the usart_d0 (attached to USB) for 9600,8,N,1 to
     // show debugging info, see usart examples for explanation
     usart_init(usart_d0, 128, 128);
@@ -61,10 +66,6 @@ int main(void) {
     /* set up the timer to fire now and then */
     timer_init(timer_c0,timer_norm,32000,NULL,&timer_ovfhook);
     timer_clk(timer_c0,timer_perdiv1);
-
-    sched_simple_init();
-    led_task = sched_create(&task_b);
-    usart_task = sched_create(&task_a);
 
     while (1) {
         /* don't bother sleeping, just constantly try to run something */
