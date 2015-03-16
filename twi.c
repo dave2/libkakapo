@@ -156,7 +156,8 @@ int twi_write(twi_portname_t portnum, uint8_t addr, void *buf, uint8_t len, twi_
     /* keep looping around until we get the bus or attempts max reached */
     while (n++ < 10) {
         k_debug("waiting for bus idle");
-        while ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_IDLE_gc);
+        while ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_IDLE_gc &&
+        (hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_OWNER_gc);
         /* null body */
 
         k_debug("write to %02x",addr);
