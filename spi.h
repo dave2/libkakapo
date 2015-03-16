@@ -145,7 +145,7 @@ int spi_conf(spi_portname_t port, spi_clkdiv_t clock, spi_mode_t mode, uint8_t t
  *  May be NULL, this discards any read data (useful for writes).
  *  \return data received or errors.h
  */
-int spi_txrx(spi_portname_t port, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t len);
+int spi_txrx(spi_portname_t port, void *tx_buf, void *rx_buf, uint16_t len);
 
 #ifdef __cplusplus
 }

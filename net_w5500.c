@@ -1143,7 +1143,7 @@ int w5500_udp_rxmeta(uint8_t socknum, uint8_t *ip, uint16_t *port, uint16_t *len
     return 0;
 }
 
-int w5500_udp_read(uint8_t socknum, uint16_t len, uint8_t *buf) {
+int w5500_udp_read(uint8_t socknum, uint16_t len, void *buf) {
     uint16_t crxrp;
     /* the UDP code doesn't use the socktable buffers because
      * the vast majority of occasions we'll be reading whole
@@ -1181,7 +1181,7 @@ int w5500_udp_read(uint8_t socknum, uint16_t len, uint8_t *buf) {
 
     crxrp = _read_reg16(BLK_SOCKET_REG(socknum),SOCK_RX_RD0);
     if (buf) {
-        _read_block(BLK_SOCKET_RX(socknum),crxrp,len,buf);
+        _read_block(BLK_SOCKET_RX(socknum),crxrp,len,(uint8_t *)buf);
     }
     /* update the pointer, and ack it even tho we don't send back anything */
     crxrp += len;
@@ -1193,7 +1193,7 @@ int w5500_udp_read(uint8_t socknum, uint16_t len, uint8_t *buf) {
     return len; /* tell the caller how much they got */
 }
 
-int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf) {
+int w5500_udp_write(uint8_t socknum, uint16_t len, void *buf) {
     uint16_t ctxwp;
 
     /* sanity check */
@@ -1224,7 +1224,7 @@ int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf) {
     /* write the block out */
     /* send the bulk data, and increment the write pointer to match */
     ctxwp = _read_reg16(BLK_SOCKET_REG(socknum),SOCK_TX_WR0);
-    _write_block(BLK_SOCKET_TX(socknum),ctxwp,len,buf);
+    _write_block(BLK_SOCKET_TX(socknum),ctxwp,len,(uint8_t *)buf);
     ctxwp += len;
     _socktable[socknum].btxlen += len;
     _write_reg16(BLK_SOCKET_REG(socknum),SOCK_TX_WR0,ctxwp);

@@ -151,7 +151,7 @@ int spi_conf(spi_portname_t portnum, spi_clkdiv_t clock, spi_mode_t mode, uint8_
 /* handle a TX/RX, one char at a time
  * in SPI, there is no explicit separate TX and RX, instead in master the
  * RX is implied by TXing a 0x00 */
-int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t len) {
+int spi_txrx(spi_portname_t portnum, void *tx_buf, void *rx_buf, uint16_t len) {
     /* this is marked as unused explicitly as a discard */
 	uint8_t __attribute__((unused)) discard;
 
@@ -165,13 +165,13 @@ int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t 
     if (tx_buf && rx_buf) {
         /* we have both buffers, read from tx, write to rx */
         while (len--) {
-            spi_ports[portnum]->hw->DATA = *tx_buf;
+            spi_ports[portnum]->hw->DATA = *(uint8_t *)tx_buf;
             tx_buf++;
             /* wait for complete */
             while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
             /* NULL BODY */
             /* read the byte into the rx buffer */
-            *rx_buf = spi_ports[portnum]->hw->DATA;
+            *(uint8_t *)rx_buf = spi_ports[portnum]->hw->DATA;
             rx_buf++;
         }
         return 0;
@@ -180,7 +180,7 @@ int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t 
     if (tx_buf && !rx_buf) {
         /* discard RX, read from tx */
         while (len--) {
-            spi_ports[portnum]->hw->DATA = *tx_buf;
+            spi_ports[portnum]->hw->DATA = *(uint8_t *)tx_buf;
             tx_buf++;
             while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
             /* NULL BODY */
@@ -197,7 +197,7 @@ int spi_txrx(spi_portname_t portnum, uint8_t *tx_buf, uint8_t *rx_buf, uint16_t 
             while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
             /* NULL BODY */
             /* read the byte into the rx buffer */
-            *rx_buf = spi_ports[portnum]->hw->DATA;
+            *(uint8_t *)rx_buf = spi_ports[portnum]->hw->DATA;
             rx_buf++;
         }
         return 0;

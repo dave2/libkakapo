@@ -91,7 +91,7 @@ uint16_t nvm_tempcal(void) {
 }
 
 /* copy n bytes from the usersig row into the buffer */
-uint16_t nvm_usersig(uint8_t *buf, uint16_t offset, uint16_t len) {
+uint16_t nvm_usersig(void *buf, uint16_t offset, uint16_t len) {
     uint16_t n = 0;
     uint8_t sreg_save;
 
@@ -108,7 +108,7 @@ uint16_t nvm_usersig(uint8_t *buf, uint16_t offset, uint16_t len) {
     cli();
     NVM.CMD = NVM_CMD_READ_USER_SIG_ROW_gc;
     for (n = 0; n < len; n++) {
-        buf[n] = pgm_read_byte(n);
+        *((uint8_t *)buf+n) = pgm_read_byte(n);
     }
     NVM.CMD = NVM_CMD_NO_OPERATION_gc;
     SREG = sreg_save;

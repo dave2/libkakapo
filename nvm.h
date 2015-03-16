@@ -71,7 +71,7 @@ uint16_t nvm_tempcal(void);
  * \param len Length of bytes to read
  * \return Actual number of bytes read
  */
-uint16_t nvm_usersig(uint8_t *buf, uint16_t offset, uint16_t len);
+uint16_t nvm_usersig(void *buf, uint16_t offset, uint16_t len);
 
 #ifdef __cplusplus
 }

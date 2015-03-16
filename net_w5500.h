@@ -235,7 +235,7 @@ int w5500_udp_rxmeta(uint8_t socknum, uint8_t *ip, uint16_t *port, uint16_t *len
  *  \param buf[] Pointer to buffer to write to (may be NULL)
  *  \return actual number of bytes provided
  */
-int w5500_udp_read(uint8_t socknum, uint16_t len, uint8_t *buf);
+int w5500_udp_read(uint8_t socknum, uint16_t len, void *buf);
 
 /** \brief Close a UDP listener
  *
@@ -256,7 +256,7 @@ int w5500_udp_close(uint8_t socknum);
  *  \param buf[] Pointer to the buffer to read from
  *  \return 0 on success, errors.h otherwise
  */
-int w5500_udp_write(uint8_t socknum, uint16_t len, uint8_t *buf);
+int w5500_udp_write(uint8_t socknum, uint16_t len, void *buf);
 
 /** \brief Send the current UDP packet buffer
  *
