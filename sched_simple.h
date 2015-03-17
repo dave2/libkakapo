@@ -22,37 +22,37 @@
  */
 
 /** \file
- *  \brief A simple FIFO task scheduler
+ *  \brief FIFO scheduler based on a ring buffer of tasks to execute
  *
- *  Allows the creation and run of 'tasks' on a FIFO basis. Tasks can be
- *  added to the run queue either at the tail (sched_later prio), or at
- *  the head (sched_now prio). A task is a function that must return which
- *  maintains it's own state.
+ * Based on a design provided by phirate
+ * No preempt, no context switching, co-operative
  *
- *  This scheduler does not implement preempt or context switching. A task
- *  must return to ensure the system does not lock. You are strongly suggested
- *  to run this with the watchdog timer to catch cases where the system locks.
- *  A task must also explicitly schedule it's own re-run if that is required.
+ * A "task" in this schedular is a function that must run to completion
+ * before another task may be run. Each task must maintain whatever state
+ * it requires between executes.
  *
- *  A task may have private data associated with it, for maintaining state.
- *  Creation and maint of the private data is the responsibility of the task.
+ * There is no yield(), instead the function should update it's own state
+ * to a suitable place to enter again when called, and return.
  *
- *  Since this is a simple FIFO, there are no assurances of starvation from
- *  a sched_now task constantly putting itself on top.
+ * Task functions have only one argument: a pointer to some data that may
+ * be useful. This pointer may be NULL, so should be checked. No guarantees
+ * are made about the volatile nature of the data this is pointed to.
+ * While you could use this as an explcit int by casting it, this is not
+ * recommended, and instead you should have a static int somewhere else and
+ * pass the pointer to it.
  *
- *  The advantage of a simple FIFO is memory impact is light, and run-time
- *  cost is relatively low.
+ * Calling sched_run() on a task adds that function with associated data
+ * pointer to the run queue. The run queue has a fixed size, set by the
+ * sched_simple_init() function. However, there is no limit to the number
+ * of possible tasks which may execute on the system. That is, only the
+ * pending tasks actually told to run will count against this limit.
  *
- *  Note: tasks can only be created, not destroyed.
+ * A task cannot be destroyed. A task may call itself to be run again.
+ *
+ * sched_run() accepts two priorities, sched_later which places the task
+ * at the end of the run queue, and sched_now which placed it at the top.
+ * There are no other priority levels.
  */
-
-/** \brief Process table structure */
-typedef struct task_struct {
-    volatile struct task_struct *next; /**< Next task in linked list */
-    volatile struct task_struct *prev; /**< Previous task in linked list */
-    void (*fn)(struct task_struct *); /**< Pointer to the actual task entry point */
-    void *data; /**< Task's own private data */
-} task_t;
 
 /** \brief Task priority for being added to run queue */
 typedef enum {
@@ -63,8 +63,10 @@ typedef enum {
 /** \brief Initalise the scheduler
  *
  *  Must be called before any other scheduling functions!
+ *
+ *  \param qlen The length of the task run queue
  */
-void sched_simple_init(void);
+int sched_simple_init(uint8_t qlen);
 
 /** \brief Execute all tasks in the queue.
  *
@@ -75,27 +77,16 @@ void sched_simple_init(void);
  */
 void sched_simple(void);
 
-/** \brief Create a new task
- *
- *  The task must consist of a function that does not have a return value
- *  and accepts one argument: a pointer to the task for the scheduler to
- *  operate on. Functions MUST return to ensure that anything else gets
- *  executed. Creating a task does not inject it into the run queue.
- *
- *  \param fn Function to use for task. Must not be NULL.
- *  \return task structure pointer, NULL if creation failed
- */
-task_t *sched_create(void (*fn)(task_t *));
-
 /**< \brief Add a task to the run queue
  *
  *  With sched_now, it will be added to the head of the run queue.
  *  sched_later adds it to the tail. It may never get executed from the
  *  tail, if more tasks of sched_now are added.
  *
- *  \param task Pointer to the task to change run state on
+ *  \param fn Pointer to the function to run as a task
+ *  \param data Pointer to the data to use for this invocation
  *  \param prio Priority to add the task at
  */
-void sched_run(task_t *task, sched_prio_t prio);
+int sched_run(void(*fn)(void *), void *data, sched_prio_t prio);
 
 #endif // SCHED_SIMPLE_H_INCLUDED

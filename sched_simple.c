@@ -18,35 +18,37 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* FIFO scheduler with no context switching and limited priority */
-
-/* A "task" in this scheduler is a function that must run to completion
- * before another task may be run. Each task is therefore a function and
- * any state must be maintained by the function itself.
- *
- * There is no yield(), instead the function should update it's own state
- * and return.
- *
- * Task functions have only one argument, the pid of the task for use in
- * changing run-state, destroying the task, and other cases. Once a task
- * has executed once, it will not execute again until an explicit call to
- * run the task is made. A task can trigger iself to run.
+/* FIFO scheduler based on a ring buffer of tasks to execute
+ * Based on a design provided by phirate
+ * No preempt, no context switching, co-operative
  */
 
-/* since there is no context switching, there is no TCB and memory footprint
- * is largely determined by private state within tasks and 8 bytes per execute
- * slot in the process table. */
-
-/* Internally, two pointers maintain the FIFO list, and a pointer is
- * kept to the tail and head. Inserting at head forces the next task to
- * be a high-priority, inserting at tail joins the end of the FIFO.
- * Interrupts are disabled while pointers are updated */
-
-/* We use linked lists since that allows O(1) task selection, rather than
- * based on the size of the process table to find another task */
-
- /* Note: there are several important casts to task_t *. These are to flag
-  * where we understand we're discarding volatile as an attribute. */
+/* A "task" in this schedular is a function that must run to completion
+ * before another task may be run. Each task must maintain whatever state
+ * it requires between executes.
+ *
+ * There is no yield(), instead the function should update it's own state
+ * to a suitable place to enter again when called, and return.
+ *
+ * Task functions have only one argument: a pointer to some data that may
+ * be useful. This pointer may be NULL, so should be checked. No guarantees
+ * are made about the volatile nature of the data this is pointed to.
+ * While you could use this as an explcit int by casting it, this is not
+ * recommended, and instead you should have a static int somewhere else and
+ * pass the pointer to it.
+ *
+ * Calling sched_run() on a task adds that function with associated data
+ * pointer to the run queue. The run queue has a fixed size, set by the
+ * sched_simple_init() function. However, there is no limit to the number
+ * of possible tasks which may execute on the system. That is, only the
+ * pending tasks actually told to run will count against this limit.
+ *
+ * A task cannot be destroyed. A task may call itself to be run again.
+ *
+ * sched_run() accepts two priorities, sched_later which places the task
+ * at the end of the run queue, and sched_now which placed it at the top.
+ * There are no other priority levels.
+ */
 
 #include <avr/io.h>
 #include "global.h"
@@ -55,149 +57,148 @@
 #include <stdlib.h>
 #include <string.h>
 #include <util/atomic.h>
-#include "sched_simple.h"
 #include "errors.h"
 #include "debug.h"
 
-/**< Maximum number of execute slots supported */
-#define SCHED_SIMPLE_MAXPROC 16
+#include "sched_simple.h"
 
-/**< the fixed process table */
-task_t _proc[SCHED_SIMPLE_MAXPROC];
-/**< head and tail pointers for the linked list */
-volatile task_t *_head;
-volatile task_t *_tail;
-/**< glue is used to provide next pointer when current task is pushed to tail */
-volatile task_t glue;
+typedef struct {
+    void (*fn)(void *); /**< Pointer to the actual task entry point */
+    void *data; /**< Private data for this task to use */
+} task_t;
 
-void sched_simple_init(void) {
-    /* reset pointers for task selection */
-    _head = NULL;
-    _tail = NULL;
-    /* reset the whole process table */
-    /* we re-cast _proc here since we're in init */
-    memset((task_t *)&_proc,0,sizeof(task_t)*SCHED_SIMPLE_MAXPROC);
-    /* and glue task, also re-cast since we're in init */
-    memset((task_t *)&glue,0,sizeof(task_t));
-    return;
-}
+/**< Process table is defined by init, so we only have a buffer here */
+task_t *_runq; /* this pointer can be cached since it doesn't change */
+volatile task_t *_runq_start;
+volatile task_t *_runq_end;
+volatile uint8_t _runq_len;
+volatile uint8_t _runq_entries;
 
-void sched_simple(void) {
-    task_t *cache = NULL;
-
-    while (1) {
-
-        /* select a new task */
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-            /* nothing to execute, break out and return to main loop */
-            if (!_head) {
-                _tail = NULL;
-                break;
-            }
-            /* if we have nothing cached, must be first pass */
-            if (!cache) {
-                /* just make us execute off the head */
-                cache = (task_t *)_head;
-            } else {
-                /* we did have a task already executed, established next task */
-                _head = (task_t *)_head->next;
-                k_debug("_head=%x",_head);
-                _head->prev = NULL;
-                cache = (task_t *)_head;
-            }
-        }
-
-        /* sanity check */
-        if (cache->fn) {
-            k_debug("jmp %x",cache);
-            (cache->fn)(cache); /* Execute the task */
-        }
-
-    }
-    /* nothing left to run */
-    return;
-}
-
-task_t *sched_create(void (*fn)(task_t *task)) {
-    uint8_t n;
-
-    if (!fn) {
-        return NULL; /* if a task doesn't have a function, then it doesn't exist */
+int sched_simple_init(uint8_t size) {
+    /* allocate space for the queue */
+    _runq = malloc(sizeof(task_t)*size);
+    if (!_runq) {
+        k_debug("failed to allocate memory for runq");
+        return -ENOMEM;
     }
 
-    /* find a slot to execute the task in */
-    for (n = 0; n < SCHED_SIMPLE_MAXPROC; n++) {
-        if (_proc[n].fn == NULL) {
-            /* looks clear, allocate it (should be safe with interupts on) */
-            _proc[n].fn = fn;
-            _proc[n].data = NULL; /* clear any private data */
-            _proc[n].next = NULL; /* has no run queue pointers */
-            _proc[n].prev = NULL;
-            /* return the structure */
-            k_debug("create task as pid %d at %x",n,&(_proc[n]));
-            return &(_proc[n]);
-        }
-    }
+    /* reset various pointers */
+    _runq_start = _runq;
+    _runq_end = _runq;
+    _runq_entries = 0;
+    _runq_len = size;
 
-    return NULL; /* no space to allocate this task, sorry */
+    /* reset the memory */
+    memset(_runq,0,sizeof(task_t)*size);
+
+    return 0;
 }
 
-void sched_run(task_t *task, sched_prio_t prio) {
+/* rotate the ring pointer backwards */
+/* MUST BE CALLED WITH INTERRUPTS OFF */
+__attribute__((always_inline)) inline void _runq_back(task_t **p) {
+    if (*p == _runq) {
+        *p = _runq + sizeof(task_t) * _runq_len;
+    } else {
+        (*p)--;
+    }
+}
 
+/* rotate the ring pointer forwards */
+/* MUST BE CALLED WITH INTERRUPTS OFF */
+__attribute__((always_inline)) inline void _runq_forward(task_t **p) {
+    if (*p == _runq + sizeof(task_t) * _runq_len) {
+        *p = _runq;
+    } else {
+        (*p)++;
+    }
+}
+
+/* push a task on to the top of the stack */
+/* THIS MUST BE CALLED WITH INTERRUPTS OFF */
+int _runq_push_start(void (*fn)(void *),void *data) {
+    /* check to see if we have anywhere to put this */
+    if (_runq_entries == _runq_len) {
+        return -ENOMEM;
+    }
+    /* push the current point backwards */
+    _runq_back((task_t **)&_runq_start);
+    /* update the number of tasks */
+    _runq_entries++;
+    /* update the runq entry we just made */
+    _runq_start->fn = fn;
+    _runq_start->data = data;
+
+    return 0;
+}
+
+/* put a task on the bottom of the queue */
+/* THIS MUST BE CALLED WITH INTERRUPTS OFF */
+int _runq_push_end(void (*fn)(void *),void *data) {
+    /* check to see if we have anywhere to put this */
+    if (_runq_entries == _runq_len) {
+        return -ENOMEM;
+    }
+    /* advance the end of the ring */
+    _runq_forward((task_t **)&_runq_end);
+    /* update entry count */
+    _runq_entries++;
+    /* update the runq entry we just made */
+    _runq_end->fn = fn;
+    _runq_end->data = data;
+    return 0;
+}
+
+/* retrieve the top task on the runq */
+/* THIS MUST BE CALLED WITH INTERUPTS OFF */
+task_t *_runq_pop_start(void) {
+    task_t *ret;
+    /* if we're empty, then return nothing */
+    if (!_runq_entries) {
+        return NULL;
+    }
+    /* the top of the stack is what we're returning */
+    ret = (task_t *)_runq_start;
+    _runq_forward((task_t **)&_runq_start);
+    /* return our, hopefully safe copy of the task */
+    return ret;
+}
+
+/* wrappers to the various cases */
+int sched_run(void (*fn)(void *),void *data,sched_prio_t prio) {
     switch (prio) {
         case sched_later:
-            /* adjusting queue pointers, leave us alone! */
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                /* if we are the current head, then we want to run again later */
-                if (_head == task) {
-                    k_debug("shift head %x to tail, using glue",task);
-                    /* set up some glue to make this work */
-                    glue.next = task->next;
-                    /* point the head to the glue, containing original next task */
-                    _head = (task_t *)&glue;
-                }
-                k_debug("append %x at tail",task);
-                /* okay, make us the tail of the run queue */
-                task->next = NULL; /* make sure we're the end */
-                /* if we have no tail, we can't very well set it's next */
-                if (_tail) {
-                    k_debug("(tail)%x->next=%x",_tail,task);
-                    _tail->next = task; /* current tail's next is us */
-                }
-                /* if we have no head, then we are probably next task to execute */
-                if (!_head) {
-                    _head = task;
-                }
-                k_debug("%x->prev=%x",task,_tail);
-                task->prev = (task_t *)_tail; /* previous from us is current tail */
-                _tail = task; /* we are now tail */
+                return _runq_push_end(fn,data);
             }
             break;
         case sched_now:
-            /* adjusting queue pointers, leave us alone! */
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                /* make glue point to us */
-                glue.next = task;
-
-                /* if we weren't the head, then make our next point to head */
-                /* if we are the head, then our existing next is acceptable */
-                if (_head != task) {
-                    /* pull us out of the queue if we had a previous */
-                    if (task->prev) {
-                        task->prev->next = task->next;
-                    }
-                    task->next = (task_t *)_head;
-                }
-                /* we have no previous task */
-                task->prev = NULL;
-                /* make glue head, which makes us head on next pass */
-                _head = (task_t *)&glue;
+                return _runq_push_start(fn,data);
             }
             break;
         default:
-            break; /* nothing much we can do */
+            break;
     }
 
-    return;
+    /* something else, just don't bother */
+    return -EINVAL;
 }
 
+/* the actual job schedular */
+void sched_simple(void) {
+    task_t task, *next = NULL;
+
+    while (1) {
+        /* we must retreive and copy the task with interrupts off */
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            next = _runq_pop_start();
+            if (!next) {
+                return; /* nothing more to do */
+            }
+            memcpy(&task,next,sizeof(task_t));
+        }
+        /* safe to now run the task */
+        (task.fn)(task.data);
+    }
+}
