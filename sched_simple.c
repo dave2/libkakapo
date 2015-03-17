@@ -160,6 +160,7 @@ task_t *_runq_pop_start(void) {
     /* the top of the stack is what we're returning */
     ret = (task_t *)_runq_start;
     _runq_forward((task_t **)&_runq_start);
+    _runq_entries--;
     /* return our, hopefully safe copy of the task */
     return ret;
 }
