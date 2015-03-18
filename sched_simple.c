@@ -62,6 +62,7 @@
 
 #include "sched_simple.h"
 
+/* what a task consists of in the queue */
 typedef struct {
     void (*fn)(void *); /**< Pointer to the actual task entry point */
     void *data; /**< Private data for this task to use */
@@ -74,9 +75,9 @@ volatile task_t *_runq_end;
 volatile uint8_t _runq_len;
 volatile uint8_t _runq_entries;
 
-int sched_simple_init(uint8_t size) {
+int sched_simple_init(uint8_t qlen) {
     /* allocate space for the queue */
-    _runq = malloc(sizeof(task_t)*size);
+    _runq = malloc(sizeof(task_t)*qlen);
     if (!_runq) {
         k_debug("failed to allocate memory for runq");
         return -ENOMEM;
@@ -86,10 +87,12 @@ int sched_simple_init(uint8_t size) {
     _runq_start = _runq;
     _runq_end = _runq;
     _runq_entries = 0;
-    _runq_len = size;
+    _runq_len = qlen;
+
+    k_info("sched_simple run queue: start=%x;qlen=%d;end=%x",_runq, qlen, _runq + qlen);
 
     /* reset the memory */
-    memset(_runq,0,sizeof(task_t)*size);
+    memset(_runq,0,sizeof(task_t)*qlen);
 
     return 0;
 }
@@ -98,7 +101,7 @@ int sched_simple_init(uint8_t size) {
 /* MUST BE CALLED WITH INTERRUPTS OFF */
 __attribute__((always_inline)) inline void _runq_back(task_t **p) {
     if (*p == _runq) {
-        *p = _runq + sizeof(task_t) * _runq_len;
+        (*p) = _runq + _runq_len;
     } else {
         (*p)--;
     }
@@ -107,8 +110,8 @@ __attribute__((always_inline)) inline void _runq_back(task_t **p) {
 /* rotate the ring pointer forwards */
 /* MUST BE CALLED WITH INTERRUPTS OFF */
 __attribute__((always_inline)) inline void _runq_forward(task_t **p) {
-    if (*p == _runq + sizeof(task_t) * _runq_len) {
-        *p = _runq;
+    if (*p == _runq + _runq_len) {
+        (*p) = _runq;
     } else {
         (*p)++;
     }
@@ -128,6 +131,7 @@ int _runq_push_start(void (*fn)(void *),void *data) {
     /* update the runq entry we just made */
     _runq_start->fn = fn;
     _runq_start->data = data;
+    k_debug("_runq_start=%x",_runq_start);
 
     return 0;
 }
@@ -146,6 +150,7 @@ int _runq_push_end(void (*fn)(void *),void *data) {
     /* update the runq entry we just made */
     _runq_end->fn = fn;
     _runq_end->data = data;
+    k_debug("_runq_end=%x",_runq_end);
     return 0;
 }
 
@@ -161,6 +166,7 @@ task_t *_runq_pop_start(void) {
     ret = (task_t *)_runq_start;
     _runq_forward((task_t **)&_runq_start);
     _runq_entries--;
+    k_debug("entries=%d",_runq_entries);
     /* return our, hopefully safe copy of the task */
     return ret;
 }
@@ -193,13 +199,24 @@ void sched_simple(void) {
     while (1) {
         /* we must retreive and copy the task with interrupts off */
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            /* obtain the next task */
             next = _runq_pop_start();
-            if (!next) {
-                return; /* nothing more to do */
+            /* make a copy of it somewhere safe */
+            if (next) {
+                k_debug("next=%x",next);
+                memcpy(&task,next,sizeof(task_t));
+            } else {
+                /* nothing to run, indicate upwards */
+                task.fn = NULL;
             }
-            memcpy(&task,next,sizeof(task_t));
         }
-        /* safe to now run the task */
-        (task.fn)(task.data);
+        /* do actual execution */
+        if (task.fn) {
+            //k_debug("call %x(%x)",task.fn,task.data);
+            /* safe to now run the task */
+            (task.fn)(task.data);
+        } else {
+            break;
+        }
     }
 }
