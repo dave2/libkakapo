@@ -69,13 +69,18 @@ typedef struct {
 } task_t;
 
 /**< Process table is defined by init, so we only have a buffer here */
-task_t *_runq; /* this pointer can be cached since it doesn't change */
+task_t *_runq = NULL; /* this pointer can be cached since it doesn't change */
 volatile task_t *_runq_start;
 volatile task_t *_runq_end;
 volatile uint8_t _runq_len;
 volatile uint8_t _runq_entries;
 
 int sched_simple_init(uint8_t qlen) {
+    
+    /* you may not call us twice */
+    if (_runq) {
+        return -EINVAL;
+    }
     /* allocate space for the queue */
     _runq = malloc(sizeof(task_t)*qlen);
     if (!_runq) {
@@ -173,6 +178,11 @@ task_t *_runq_pop_start(void) {
 
 /* wrappers to the various cases */
 int sched_run(void (*fn)(void *),void *data,sched_prio_t prio) {
+    /* you may not call us without init */
+    if (!_runq) {
+        return -EINVAL;
+    }
+    
     switch (prio) {
         case sched_later:
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
@@ -196,6 +206,12 @@ int sched_run(void (*fn)(void *),void *data,sched_prio_t prio) {
 void sched_simple(void) {
     task_t task, *next = NULL;
 
+    /* you may not call us without init */
+    if (!_runq) {
+        return;
+    }
+
+    /* loop until nothing more to run */
     while (1) {
         /* we must retreive and copy the task with interrupts off */
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
