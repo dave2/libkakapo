@@ -22,9 +22,9 @@
 
 /* our two tasks, prototypes */
 
-/* a will echo usart characters */
+/* this task will echo usart characters RXed */
 void usart_task(void *data);
-/* b will toggle an LED when called, which we'll trigger from a timer */
+/* this task will toggle an LED when called, which we'll trigger from a timer */
 void led_task(void *data);
 
 /* a prototype to hook the USART recieve event */
@@ -40,9 +40,6 @@ int main(void) {
 
     sei();
 
-    /* initalise the scheduler with a 4-deep run queue */
-    sched_simple_init(8);
-
     // configure the usart_d0 (attached to USB) for 9600,8,N,1 to
     // show debugging info, see usart examples for explanation
     usart_init(usart_d0, 128, 128);
@@ -55,6 +52,7 @@ int main(void) {
     _delay_ms(1);
 
     printf("scheduler test\r\n");
+    /* initalise scheduler with 4-deep run queue */
     sched_simple_init(4);
 
     count = 0;
@@ -71,10 +69,11 @@ int main(void) {
     return 0;
 }
 
+/* we get told to run when a character is recieved */
+/* we don't do anything useful with data pointer */
 void usart_task(void *data) {
     int c = 0;
-    /* we get told to run when a character is recieved */
-    /* we don't do anything useful with data pointer */
+    
     while (1) {
         c = getchar();
         if (c == EOF) {
@@ -98,7 +97,7 @@ void usart_rxhook(uint8_t c) {
 
 void timer_ovfhook(void) {
     count++;
-    if (count == 1000) { // 100ms between toggles
+    if (count == 1000) { // 1000ms between toggles
         count = 0;
         sched_run(&led_task,NULL,sched_now);
     }
