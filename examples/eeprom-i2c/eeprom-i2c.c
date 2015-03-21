@@ -29,7 +29,7 @@ int main(void) {
   // configure the usart_d0 (attached to USB) for 9600,8,N,1 to
   // show debugging info, see usart examples for explanation
   usart_init(usart_d0, 128, 128);
-  usart_conf(usart_d0, 9600, 8, none, 1, 0, NULL);
+  usart_conf(usart_d0, 921600, 8, none, 1, 0, NULL);
   usart_map_stdio(usart_d0);
   usart_run(usart_d0);
 
@@ -37,13 +37,18 @@ int main(void) {
   _delay_ms(1);
 
   /* initalise I2C to run at 400kHz */
-  twi_init(twi_c,400);
+  twi_init(twi_e,400);
 
   /* the 24AA02E48T is at address 0x50 and needs a write of an address
    * to read from, then reads are successive bytes from that address
    * in the eeprom */
-  twi_write(twi_c,0x50,"\xFA",1,1);
-  twi_read(twi_c,0x50,&mac,6,1);
+  /* in this example we do a multi-part read, to illustrate that read/write
+   * may be done as multiple calls */
+  twi_start(twi_e,0x50,twi_mode_write);
+  twi_write(twi_e,"\xFA",1,twi_more);
+  twi_start(twi_e,0x50,twi_mode_read);
+  twi_read(twi_e,&(mac),3,twi_more);
+  twi_read(twi_e,&(mac[3]),3,twi_stop);
 
   printf_P(PSTR("\r\nMAC: %02x:%02x:%02x:%02x:%02x:%02x\r\n"),
         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
