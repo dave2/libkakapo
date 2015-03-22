@@ -32,12 +32,16 @@
 typedef struct {
 	TWI_t *hw; /* pointer to real hardware */
 	twi_rwmode_t rw; /* what mode we were last asked to start for */
+	uint16_t timeout_us; /* How many us to wait before giving up */
 } twi_port_t;
 
 twi_port_t *twi_ports[MAX_TWI_PORTS] = TWI_INIT_PORTS;
 
+int twi_wait_busowner(TWI_t *hw, uint16_t t);
+int twi_wait_rwif(TWI_t *hw, uint16_t t);
+
 /* initalise a port */
-int twi_init(twi_portname_t port, uint16_t speed) {
+int twi_init(twi_portname_t port, uint16_t speed, uint16_t timeout_us) {
 	uint32_t baud;
 
 	if (twi_ports[port] || port >= MAX_TWI_PORTS) {
@@ -49,6 +53,7 @@ int twi_init(twi_portname_t port, uint16_t speed) {
 
     /* reset the mode */
     twi_ports[port]->rw = twi_mode_read; /* well, it'll do */
+    twi_ports[port]->timeout_us = timeout_us;
 
 	switch (port) {
 #if defined(TWIC)
@@ -91,6 +96,29 @@ int twi_init(twi_portname_t port, uint16_t speed) {
 	return 0;
 }
 
+int twi_wait_busowner(TWI_t *hw, uint16_t t) {
+    while ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_IDLE_gc &&
+            (hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_OWNER_gc) {
+        t--;
+        if (t == 0) {
+            return -ETIME;
+        }
+        _delay_us(1);
+    }
+    return 0;
+}
+
+int twi_wait_rwif(TWI_t *hw, uint16_t t) {
+    while ((hw->MASTER.STATUS & (TWI_MASTER_WIF_bm | TWI_MASTER_RIF_bm)) == 0) {
+        t--;
+        if (t == 0) {
+            return -ETIME;
+        }
+        _delay_us(1);
+    }
+    return 0;
+}
+
 /* issue (repeated-)start for TWI master mode */
 /* repeated start is just a side effect of calling this when already owning the bus */
 int twi_start(twi_portname_t port, uint8_t addr, twi_rwmode_t rw) {
@@ -111,11 +139,12 @@ int twi_start(twi_portname_t port, uint8_t addr, twi_rwmode_t rw) {
 
     /* start by acquiring the bus */
 
-    k_debug("wait for bus acquire");
+    k_debug("wait for bus acquire (t=%d)",twi_ports[port]->timeout_us);
 
-    while ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_IDLE_gc &&
-            (hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) != TWI_MASTER_BUSSTATE_OWNER_gc);
-        /* null body */
+    if (twi_wait_busowner(hw,twi_ports[port]->timeout_us)) {
+        k_err("timeout for bus acquire");
+        return -ETIME;
+    }
 
     k_debug("hailing %02x",addr);
     if (rw == twi_mode_read) {
@@ -124,9 +153,10 @@ int twi_start(twi_portname_t port, uint8_t addr, twi_rwmode_t rw) {
         hw->MASTER.ADDR = (addr << 1);
     }
 
-    while ((hw->MASTER.STATUS & (TWI_MASTER_WIF_bm | TWI_MASTER_RIF_bm)) == 0);
-    /* null body */
-    /* FIXME: this should have a timeout or something */
+    if (twi_wait_rwif(hw,twi_ports[port]->timeout_us)) {
+        k_warn("no response at addr %02x",addr);
+        return -ENODEV;
+    }
 
     k_debug("wif/rif set");
 
@@ -137,9 +167,9 @@ int twi_start(twi_portname_t port, uint8_t addr, twi_rwmode_t rw) {
         return -EBUSY;
     }
 
-    /* we got a NAK, then toss error */
+    /* we got a NAK, then toss error. Note: this probably never gets hit */
     if (hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) {
-        k_warn("no device responded at %02x, giving up",addr);
+        k_warn("no response at addr %02x",addr);
         /* issue a stop to release the bus */
         hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
         return -EIO;
@@ -202,10 +232,12 @@ int twi_write(twi_portname_t port, void *buf, uint16_t len, twi_end_t endstate) 
         buf++;
         len--;
 
-        while ((hw->MASTER.STATUS & TWI_MASTER_WIF_bm) == 0);
-        /* null body */
-
-        k_debug("wif set");
+        k_debug("wait for write complete");
+        if (twi_wait_rwif(hw,twi_ports[port]->timeout_us)) {
+            k_err("write timeout");
+            /* fixme: issue stop? */
+            return -EIO;
+        }
 
         if ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) == TWI_MASTER_BUSSTATE_BUSY_gc) {
             /* give up, something else is trashing the bus */
@@ -278,9 +310,10 @@ int twi_read(twi_portname_t port, void *buf, uint16_t len, twi_end_t endstate) {
 
         /* this will have RIF set on the first pass from twi_start() in read
          * mode so should just immediately RX. Check WIF for bus errors */
-        while ((hw->MASTER.STATUS & TWI_MASTER_RIF_bm) == 0 &&
-            (hw->MASTER.STATUS & TWI_MASTER_WIF_bm) == 0);
-        /* null body */
+        if (twi_wait_rwif(hw,twi_ports[port]->timeout_us)) {
+            k_err("read timeout");
+            return -ETIME;
+        }
 
         /* check for bus error */
         if ((hw->MASTER.STATUS & TWI_MASTER_BUSSTATE_gm) == TWI_MASTER_BUSSTATE_BUSY_gc) {

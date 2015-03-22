@@ -90,9 +90,10 @@ typedef enum {
  *
  *  \param port Name of the TWI port to use
  *  \param speed Speed of the port, in kHz
+ *  \param timeout_us Timeout of any function in us
  *  \return 0 on success, errors.h otherwise
  */
-int twi_init(twi_portname_t port, uint16_t speed);
+int twi_init(twi_portname_t port, uint16_t speed, uint16_t timeout_us);
 
 /** \brief Start a TWI transaction (master)
  *
