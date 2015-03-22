@@ -81,7 +81,7 @@ int twi_init(twi_portname_t port, uint16_t speed, uint16_t timeout_us) {
 	/* calculate the TWI baud rate for the CPU frequency */
 	baud = ((uint32_t)F_CPU / (2000UL*(uint32_t)speed))-5;
 
-	k_debug("baud is %d",(uint8_t)baud);
+	k_debug("port %d: baud=%d, timeout=%d",port,(uint8_t)baud,timeout_us);
 
 	twi_ports[port]->hw->MASTER.BAUD = (uint8_t) baud;
 
@@ -139,7 +139,7 @@ int twi_start(twi_portname_t port, uint8_t addr, twi_rwmode_t rw) {
 
     /* start by acquiring the bus */
 
-    k_debug("wait for bus acquire (t=%d)",twi_ports[port]->timeout_us);
+    k_debug("wait for bus acquire",twi_ports[port]->timeout_us);
 
     if (twi_wait_busowner(hw,twi_ports[port]->timeout_us)) {
         k_err("timeout for bus acquire");
@@ -234,8 +234,9 @@ int twi_write(twi_portname_t port, void *buf, uint16_t len, twi_end_t endstate) 
 
         k_debug("wait for write complete");
         if (twi_wait_rwif(hw,twi_ports[port]->timeout_us)) {
-            k_err("write timeout");
-            /* fixme: issue stop? */
+            k_err("write timeout, releasing bus");
+            /* return the bus to others, regardless */
+            hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
             return -EIO;
         }
 
@@ -248,8 +249,10 @@ int twi_write(twi_portname_t port, void *buf, uint16_t len, twi_end_t endstate) 
         if (hw->MASTER.STATUS & TWI_MASTER_RXACK_bm) {
             /* we got a NAK, so in either case, we stop sending stuff */
             k_debug("nak recieved");
-            /* if we were expecting to release bus, do so */
-            if (endstate == twi_stop) {
+            /* if we were expecting to release bus, do so. */
+            /* we force release when bytes pending */
+            if (endstate == twi_stop || len) {
+                k_debug("releasing bus");
                 hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
             }
             if (len) {
@@ -311,7 +314,9 @@ int twi_read(twi_portname_t port, void *buf, uint16_t len, twi_end_t endstate) {
         /* this will have RIF set on the first pass from twi_start() in read
          * mode so should just immediately RX. Check WIF for bus errors */
         if (twi_wait_rwif(hw,twi_ports[port]->timeout_us)) {
-            k_err("read timeout");
+            k_err("read timeout, releasing bus");
+            /* always release the bus */
+            hw->MASTER.CTRLC = TWI_MASTER_CMD_STOP_gc;
             return -ETIME;
         }
 
