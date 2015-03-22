@@ -335,7 +335,7 @@ int twi_read(twi_portname_t port, void *buf, uint16_t len, twi_end_t endstate) {
 
         if (!len && endstate == twi_stop) {
             k_debug("rx complete, send nak + releasing bus");
-            hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_RECVTRANS_gc;
+            hw->MASTER.CTRLC = TWI_MASTER_ACKACT_bm | TWI_MASTER_CMD_STOP_gc;
             break;
         }
 
