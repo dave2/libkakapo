@@ -18,6 +18,7 @@
 #include "kakapo.h"
 #include "twi.h"
 #include "clock.h"
+#include "errors.h"
 
 uint8_t mac[6]; /* where we place our MAC address from the chip */
 
@@ -36,22 +37,24 @@ int main(void) {
   putchar(0);
   _delay_ms(1);
 
-  /* initalise I2C to run at 400kHz */
-  twi_init(twi_e,400);
+  /* initalise I2C to run at 400kHz, 200us timeout */
+  twi_init(twi_e,400,200);
 
   /* the 24AA02E48T is at address 0x50 and needs a write of an address
    * to read from, then reads are successive bytes from that address
    * in the eeprom */
   /* in this example we do a multi-part read, to illustrate that read/write
    * may be done as multiple calls */
-  twi_start(twi_e,0x50,twi_mode_write);
-  twi_write(twi_e,"\xFA",1,twi_more);
-  twi_start(twi_e,0x50,twi_mode_read);
-  twi_read(twi_e,&(mac),3,twi_more);
-  twi_read(twi_e,&(mac[3]),3,twi_stop);
-
-  printf_P(PSTR("\r\nMAC: %02x:%02x:%02x:%02x:%02x:%02x\r\n"),
+  if (twi_start(twi_e,0x50,twi_mode_write) == 0) {
+    twi_write(twi_e,"\xFA",1,twi_more);
+    twi_start(twi_e,0x50,twi_mode_read);
+    twi_read(twi_e,&(mac),3,twi_more);
+    twi_read(twi_e,&(mac[3]),3,twi_stop);
+    printf_P(PSTR("\r\nMAC: %02x:%02x:%02x:%02x:%02x:%02x\r\n"),
         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  } else {
+    printf_P(PSTR("no MAC chip at 0x50\r\n"));
+  }
 
     while (1) {
         // do nothing
