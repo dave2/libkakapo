@@ -101,9 +101,10 @@ typedef enum {
 
 /** \brief Initalise an SPI port
  *  \param port Name of the port
+ *  \param timeout_us Timeout in us for operations
  *  \return 0 for sucess, errors.h otherwise
  */
-int spi_init(spi_portname_t port);
+int spi_init(spi_portname_t port, uint16_t timeout_us);
 
 /** \brief Configure and SPI port
  *
@@ -143,6 +144,7 @@ int spi_conf(spi_portname_t port, spi_clkdiv_t clock, spi_mode_t mode, uint8_t t
  *  forces SPI port to transmit zeros (useful for reads).
  *  \param rx_buf A buffer containing len bytes to be written to from receive.
  *  May be NULL, this discards any read data (useful for writes).
+ *  \param len Length of each buffer (for both)
  *  \return data received or errors.h
  */
 int spi_txrx(spi_portname_t port, void *tx_buf, void *rx_buf, uint16_t len);

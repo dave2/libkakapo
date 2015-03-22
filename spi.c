@@ -48,8 +48,10 @@
 #include <avr/pgmspace.h>
 #include <stdio.h>
 #include "global.h"
+#include <util/delay.h>
 #include "errors.h"
 #include "spi.h"
+#include "debug.h"
 
 /** \struct spi_port_t
  *  \brief Struct for holding port details
@@ -58,13 +60,17 @@ typedef struct {
 	SPI_t *hw; /**< Pointer to real hardware */
 	PORT_t *port; /**< Pointer to the port to use */
 	uint8_t txdummy; /**< What to pad generated TX with */
+	uint16_t timeout_us; /**< Timeout for HW operations, in us */
 	/* Fixme: add ringbuffers and callback hooks */
 } spi_port_t;
 
 spi_port_t *spi_ports[MAX_SPI_PORTS] = SPI_PORT_INIT; /**< SPI port abstractions */
 
+/* internal function to wait for interrupt flags with timeout */
+int spi_wait_if(SPI_t *hw, uint16_t t);
+
 /* Iniitalise a port */
-int spi_init(spi_portname_t portnum) {
+int spi_init(spi_portname_t portnum, uint16_t timeout_us) {
 
 	if (spi_ports[portnum] || portnum >= MAX_SPI_PORTS) {
 		/* refuse to re-initalise a port or one not allocatable */
@@ -119,11 +125,16 @@ int spi_init(spi_portname_t portnum) {
     spi_ports[portnum]->hw->CTRL = (SPI_ENABLE_bm | SPI_MASTER_bm);
     //SPID.CTRL = (SPI_ENABLE_bm | SPI_MASTER_bm);
 
+    /* configure HW timeout */
+    spi_ports[portnum]->timeout_us = timeout_us;
+
     return 0;
 }
 
 /* set configuration for a given port */
-int spi_conf(spi_portname_t portnum, spi_clkdiv_t clock, spi_mode_t mode, uint8_t txdummy) {
+int spi_conf(spi_portname_t portnum, spi_clkdiv_t clock, spi_mode_t mode,
+        uint8_t txdummy) {
+
 	if (portnum >= MAX_SPI_PORTS || !spi_ports[portnum]) {
 		return -ENODEV;
 	}
@@ -148,6 +159,17 @@ int spi_conf(spi_portname_t portnum, spi_clkdiv_t clock, spi_mode_t mode, uint8_
 	return 0;
 }
 
+int spi_wait_if(SPI_t *hw, uint16_t t) {
+    while (!(hw->STATUS & SPI_IF_bm)) {
+        t--;
+        if (t == 0) {
+            return -ETIME;
+        }
+        _delay_us(1);
+    }
+    return 0;
+}
+
 /* handle a TX/RX, one char at a time
  * in SPI, there is no explicit separate TX and RX, instead in master the
  * RX is implied by TXing a 0x00 */
@@ -167,9 +189,13 @@ int spi_txrx(spi_portname_t portnum, void *tx_buf, void *rx_buf, uint16_t len) {
         while (len--) {
             spi_ports[portnum]->hw->DATA = *(uint8_t *)tx_buf;
             tx_buf++;
+
             /* wait for complete */
-            while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
-            /* NULL BODY */
+            if (spi_wait_if(spi_ports[portnum]->hw,spi_ports[portnum]->timeout_us)) {
+                k_err("hw timeout");
+                return -ETIME;
+            }
+
             /* read the byte into the rx buffer */
             *(uint8_t *)rx_buf = spi_ports[portnum]->hw->DATA;
             rx_buf++;
@@ -182,8 +208,13 @@ int spi_txrx(spi_portname_t portnum, void *tx_buf, void *rx_buf, uint16_t len) {
         while (len--) {
             spi_ports[portnum]->hw->DATA = *(uint8_t *)tx_buf;
             tx_buf++;
-            while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
-            /* NULL BODY */
+
+            /* wait for complete */
+            if (spi_wait_if(spi_ports[portnum]->hw,spi_ports[portnum]->timeout_us)) {
+                k_err("hw timeout");
+                return -ETIME;
+            }
+
             /* we have to read this even tho we are discarding it */
             discard = spi_ports[portnum]->hw->DATA;
         }
@@ -194,8 +225,13 @@ int spi_txrx(spi_portname_t portnum, void *tx_buf, void *rx_buf, uint16_t len) {
         /* generate zeros for TX, write to rx */
         while (len--) {
             spi_ports[portnum]->hw->DATA = spi_ports[portnum]->txdummy;
-            while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
-            /* NULL BODY */
+
+            /* wait for complete */
+            if (spi_wait_if(spi_ports[portnum]->hw,spi_ports[portnum]->timeout_us)) {
+                k_err("hw timeout");
+                return -ETIME;
+            }
+
             /* read the byte into the rx buffer */
             *(uint8_t *)rx_buf = spi_ports[portnum]->hw->DATA;
             rx_buf++;
@@ -207,7 +243,13 @@ int spi_txrx(spi_portname_t portnum, void *tx_buf, void *rx_buf, uint16_t len) {
     /* write zeros and discard, this might be used for a drain? */
     while (len--) {
             spi_ports[portnum]->hw->DATA = spi_ports[portnum]->txdummy;
-            while (!(spi_ports[portnum]->hw->STATUS & SPI_IF_bm));
+
+            /* wait for complete */
+            if (spi_wait_if(spi_ports[portnum]->hw,spi_ports[portnum]->timeout_us)) {
+                k_err("hw timeout");
+                return -ETIME;
+            }
+
             /* we have to read this even tho we are discarding it */
             discard = spi_ports[portnum]->hw->DATA;
     }

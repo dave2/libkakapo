@@ -445,8 +445,8 @@ int w5500_init(spi_portname_t spi_port, PORT_t *cs_port, uint8_t cs_pin,
 	w5500_port->DIRSET = w5500_pin;
 	cs_end;
 
-	/* init the SPI port */
-	spi_init(spi_port);
+	/* init the SPI port, 200us timeout */
+	spi_init(spi_port,200);
 	spi_conf(spi_port,spi_perdiv2,spi_mode0,0x00);
 
 	/* validate that we're talking to the chip we expect */
