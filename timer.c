@@ -262,7 +262,7 @@ int timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period,
 			timers[timernum]->hw.hw4->PER = period;
 			if (ovf_hook) {
 				/* we don't use ERR hook */
-				timers[timernum]->hw.hw4->INTCTRLA = TC_OVFINTLVL_LO_gc;
+				timers[timernum]->hw.hw4->INTCTRLA = TC45_OVFINTLVL_LO_gc;
 			}
 #endif // _HAVE_TIMER_TYPE4
 #ifdef _HAVE_TIMER_TYPE5
@@ -271,7 +271,7 @@ int timer_init(uint8_t timernum, timer_pwm_t mode, uint16_t period,
 			timers[timernum]->hw.hw5->PER = period;
 			if (ovf_hook) {
 				/* we don't use ERR hook */
-				timers[timernum]->hw.hw5->INTCTRLA = TC_OVFINTLVL_LO_gc;
+				timers[timernum]->hw.hw5->INTCTRLA = TC45_OVFINTLVL_LO_gc;
 			}
 #endif // HAVE_TIME_TYPE5
 		default:
