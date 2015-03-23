@@ -75,13 +75,13 @@ typedef enum {
 
 /** \brief Define what SPI hardware exists */
 /* E5/B1/B3 has 1 SPI, A1/A1U has 4, everyone else has 2 */
-#if defined(_xmega_type_e5)|| defined(_xmega_type_b1) || defined (_xmega_type_b3)
+#if defined(_xmega_type_E5)|| defined(_xmega_type_B1) || defined (_xmega_type_B3)
 #define MAX_SPI_PORTS 1 /**< Maximum number of SPI ports supported */
 #define SPI_PORT_INIT {0} /**< Array to init port struct array with */
 typedef enum {
     spi_c = 0,  /**< SPI on PORTC, pins 4,5,6,7 */
 } spi_portname_t;
-#elif defined (_xmega_type_a1) || defined (_xmega_type_a1u)
+#elif defined (_xmega_type_A1) || defined (_xmega_type_A1U)
 #define MAX_SPI_PORTS 4 /**< Maximum number of SPI ports supported */
 #define SPI_PORT_INIT {0,0,0,0} /**< Array to init port struct array with */
 typedef enum {
