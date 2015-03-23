@@ -158,7 +158,7 @@ typedef enum {
  usart_d0,
 } usart_portname_t;
 
-#elif defined(_xmega_type_D4)
+#elif defined(_xmega_type_D4) || defined(_xmega_type_E5)
 
 #define MAX_PORTS 2 /**< Maximum number of usart ports supported */
 #define USART_PORT_INIT {0,0}

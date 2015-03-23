@@ -97,7 +97,7 @@
 
 #elif defined (__AVR_ATxmega8E5__) || defined(__AVR_ATxmega16E5__) || defined(__AVR_ATxmega32E5__)
 
-#define _xmega_type E5
+#define _xmega_type_E5
 
 #endif // defined(__AVR
 
