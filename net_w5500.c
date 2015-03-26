@@ -72,8 +72,8 @@
 #define COM_SHAR5 0x0e		/**< Source HW MAC Octet 5 (LSB) */
 #define COM_SIPR0 0x0f		/**< Source IP Octet 0 (MSB) */
 #define COM_SIPR1 0x10		/**< Source IP Octet 1 */
-#define COM_SIRP2 0x11		/**< Source IP Octet 2 */
-#define COM_SIRP3 0x12		/**< Source IP Octet 3 (LSB) */
+#define COM_SIPR2 0x11		/**< Source IP Octet 2 */
+#define COM_SIPR3 0x12		/**< Source IP Octet 3 (LSB) */
 #define COM_INTLEVEL0 0x13	/**< Interrupt Low Level Timer (MSB) */
 #define COM_INTLEVEL1 0x14	/**< Interrupt Low Level Timer (LSB) */
 #define COM_IR 0x15			/**< Interrupt */
@@ -507,22 +507,38 @@ int w5500_init(spi_portname_t spi_port, PORT_t *cs_port, uint8_t cs_pin,
 
 /* configure IP address settings on the chip */
 int w5500_ip_conf(uint8_t *ip, uint8_t cidr, uint8_t *gw) {
-	uint32_t mask;
+    uint32_t mask32;
 
 	/* check we have the port first */
 	if (!w5500_port) {
         k_debug("no such device");
 		return -ENODEV;
 	}
-	/* compute mask from cidr length */
-	mask = (0xffff << (32-cidr));
 
-    k_debug("updating IP address to %d.%d.%d.%d/%d.%d.%d.%d",
-        ip[0],ip[1],ip[2],ip[3],mask >> 24, mask >> 16, mask >> 8, mask & 0xff);
+    mask32 = (0xffffffffUL << (32-cidr));
+
 	/* write the details to the common register */
 	_write_block(BLK_COMMON,COM_SIPR0,4,ip);
-	_write_block(BLK_COMMON,COM_SUBR0,4,(uint8_t *)&mask);
+
+	/* mask must be written in the right order vs avr8 hw */
+    _write_reg(BLK_COMMON,COM_SUBR0,mask32 >> 24);
+    _write_reg(BLK_COMMON,COM_SUBR1,mask32 >> 16);
+    _write_reg(BLK_COMMON,COM_SUBR2,mask32 >> 8);
+    _write_reg(BLK_COMMON,COM_SUBR3,mask32 & 0xff);
+
+    /* gateway addr */
 	_write_block(BLK_COMMON,COM_GAR0,4,gw);
+
+	k_info("ip: %d.%d.%d.%d/%d.%d.%d.%d",
+        _read_reg(BLK_COMMON,COM_SIPR0),
+        _read_reg(BLK_COMMON,COM_SIPR1),
+        _read_reg(BLK_COMMON,COM_SIPR2),
+        _read_reg(BLK_COMMON,COM_SIPR3),
+        _read_reg(BLK_COMMON,COM_SUBR0),
+        _read_reg(BLK_COMMON,COM_SUBR1),
+        _read_reg(BLK_COMMON,COM_SUBR2),
+        _read_reg(BLK_COMMON,COM_SUBR3)
+	);
 
 	return 0;
 }
